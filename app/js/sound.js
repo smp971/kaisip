@@ -31,9 +31,9 @@ var Sound = (function () {
     return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
   }
 
-  function loopAudio(url, volume) {
+  function loopAudio(url, volume, channel) {
     var a = new Audio(url);
-    try { a.mozAudioChannelType = 'content'; } catch (e) {}
+    try { a.mozAudioChannelType = channel || 'content'; } catch (e) {}
     a.loop = true;
     a.volume = Math.max(0, Math.min(1, volume));
     var p = a.play();
@@ -72,7 +72,8 @@ var Sound = (function () {
     /* 425 Hz, 1 s on, 4 s off */
     startRingback: function () {
       this.stopRingback();
-      ringback = loopAudio(wavUrl([{ hz1: 425, ms: 1000 }, { ms: 4000 }]), 0.6);
+      /* in the earpiece when routing is available, so it matches where the call audio will come out */
+      ringback = loopAudio(wavUrl([{ hz1: 425, ms: 1000 }, { ms: 4000 }]), 0.6, Route.channel());
     },
     stopRingback: function () { stopAudio(ringback); ringback = null; },
 
@@ -80,7 +81,7 @@ var Sound = (function () {
       this.stopRemote();
       try {
         remote = new Audio();
-        try { remote.mozAudioChannelType = 'content'; } catch (e) {}
+        try { remote.mozAudioChannelType = Route.channel(); } catch (e) {}
         if ('mozSrcObject' in remote) { remote.mozSrcObject = stream; } else { remote.srcObject = stream; }
         var p = remote.play();
         if (p && p.then) { p.then(null, function (err) { Log.w('sound', 'remote play rejected: ' + err); }); }

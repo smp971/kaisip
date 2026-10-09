@@ -1,1 +1,1 @@
-var KAISIP_VERSION = '0.2.1-m2';
+var KAISIP_VERSION = '0.3.0';

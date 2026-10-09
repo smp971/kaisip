@@ -1,0 +1,21 @@
+{
+  "version": "0.0.1",
+  "name": "KaiSIP Diag",
+  "description": "Certified audio routing diagnostics (earpiece / speaker)",
+  "launch_path": "/index.html",
+  "type": "certified",
+  "fullscreen": "true",
+  "icons": {
+    "56": "/icon-56.png",
+    "112": "/icon-112.png"
+  },
+  "developer": { "name": "local" },
+  "default_locale": "en-US",
+  "permissions": {
+    "device-storage:sdcard": { "description": "Write logs", "access": "readwrite" },
+    "audio-capture": { "description": "Microphone" },
+    "audio-channel-content": { "description": "Content audio" },
+    "audio-channel-telephony": { "description": "Earpiece routing" },
+    "telephony": { "description": "Speaker toggle (mozTelephony.speakerEnabled)" }
+  }
+}

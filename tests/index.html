@@ -17,10 +17,13 @@
 <script src="../app/js/errors.js"></script>
 <script src="../app/js/calllog.js"></script>
 <script>
-/* minimal stubs so call.js can be loaded for its pure helpers */
+/* minimal stubs so call.js / route.js / contacts.js can be loaded for their pure helpers */
 var Log = { i: function () {}, w: function () {}, e: function () {} };
 var Sound = {}; var Sip = { state: function () { return { state: 'idle' }; }, ua: function () { return null; } };
+var Background = { bringToFront: function () {} };
 </script>
+<script src="../app/js/route.js"></script>
+<script src="../app/js/contacts.js"></script>
 <script src="../app/js/call.js"></script>
 <script>
 var pass = 0, fail = 0, results = document.getElementById('results');
@@ -115,6 +118,48 @@ eq('dial letters only refused', Call.dial('abc'), 'Număr invalid');
 eq('dial other number needs registration', Call.dial('207'), 'Nu ești înregistrat');
 try { localStorage.removeItem('kaisip.config'); } catch (e) {}
 Config._reset();
+
+/* ---- Config: new settings ---- */
+eq('background low valid', [Config.validate('background', 'low'), Config.validate('background', 'on'), Config.validate('background', 'off')], ['', '', '']);
+eq('background invalid', Config.validate('background', 'turbo') !== '', true);
+eq('audioOut valid/invalid', [Config.validate('audioOut', 'ear'), Config.validate('audioOut', 'speaker'), Config.validate('audioOut', 'x') !== ''], ['', '', true]);
+eq('audioOut default', Config.defaults.audioOut, 'ear');
+
+/* ---- Route (desktop browser: no mozTelephony) ---- */
+eq('route unsupported without mozTelephony', Route.supported(), false);
+eq('route falls back to content channel', Route.channel(), 'content');
+eq('route label empty when unsupported', Route.label(), '');
+eq('route isSpeaker true when unsupported', Route.isSpeaker(), true);
+eq('route setSpeaker refuses when unsupported', Route.setSpeaker(true), false);
+
+/* ---- Contacts ---- */
+Contacts.clear();
+eq('contacts empty', Contacts.list(), []);
+eq('validate empty name', Contacts.validate('  ', '207'), 'Scrie un nume');
+eq('validate bad number', Contacts.validate('Ana', 'abc'), 'Număr invalid');
+eq('validate long name', Contacts.validate(new Array(50).join('a'), '1') !== '', true);
+var r1 = Contacts.add('  Zoe ', '207'); var r2 = Contacts.add('ana', '204'); var r3 = Contacts.add('Bogdan', '+40 722-123');
+eq('add returns ids', [!!r1.id, !!r2.id, !!r3.id], [true, true, true]);
+eq('sorted case-insensitive', Contacts.list().map(function (c) { return c.name; }), ['ana', 'Bogdan', 'Zoe']);
+eq('number filtered when stored', Contacts.findByNumber('+40722123').name, 'Bogdan');
+eq('name trimmed', Contacts.get(r1.id).name, 'Zoe');
+eq('duplicate number refused', Contacts.add('Alt', '207').error, 'Există deja: Zoe');
+eq('findByNumber with formatting', Contacts.findByNumber('20 7').name, 'Zoe');
+eq('findByNumber missing', Contacts.findByNumber('999'), null);
+eq('findByNumber empty', Contacts.findByNumber(''), null);
+eq('update keeps own number', Contacts.update(r2.id, 'Ana M', '204').id, r2.id);
+eq('update to other contact number refused', Contacts.update(r2.id, 'Ana M', '207').error, 'Există deja: Zoe');
+eq('update missing id', Contacts.update('nope', 'X', '555').error, 'Contact negăsit');
+eq('remove existing/missing', [Contacts.remove(r3.id), Contacts.remove(r3.id)], [true, false]);
+eq('count after remove', Contacts.count(), 2);
+try { localStorage.setItem('kaisip.contacts', '[{"id":1},{"id":"x","name":"N","number":"5"}]'); } catch (e) {}
+eq('corrupt entries filtered', Contacts.list().length, 1);
+try { localStorage.setItem('kaisip.contacts', 'garbage'); } catch (e) {}
+eq('garbage storage -> empty', Contacts.list(), []);
+Contacts.clear();
+for (var j = 0; j < 205; j++) { Contacts.add('C' + j, String(1000 + j)); }
+eq('contacts capped at 200', Contacts.count(), 200);
+Contacts.clear();
 
 /* ---- CallLog ---- */
 try { localStorage.removeItem('kaisip.calllog'); } catch (e) {}

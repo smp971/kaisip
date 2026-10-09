@@ -41,6 +41,7 @@ var Call = (function () {
     emit('change', current);
   }
 
+  var screenLock = null;
   function lockCpu() {
     try { if (!wakeLock && navigator.requestWakeLock) { wakeLock = navigator.requestWakeLock('cpu'); } }
     catch (e) { Log.w('call', 'wake lock failed: ' + e); }
@@ -48,6 +49,15 @@ var Call = (function () {
   function unlockCpu() {
     try { if (wakeLock) { wakeLock.unlock(); } } catch (e) {}
     wakeLock = null;
+  }
+  /* while an incoming call rings, try to light the screen so the call can be seen */
+  function lockScreen() {
+    try { if (!screenLock && navigator.requestWakeLock) { screenLock = navigator.requestWakeLock('screen'); } }
+    catch (e) { Log.w('call', 'screen lock failed: ' + e); }
+  }
+  function unlockScreen() {
+    try { if (screenLock) { screenLock.unlock(); } } catch (e) {}
+    screenLock = null;
   }
 
   function startTick() {
@@ -75,7 +85,9 @@ var Call = (function () {
     c.ended = true;
     stopTick();
     unlockCpu();
+    unlockScreen();
     Sound.stopAll();
+    Route.end();
     var dur = c.answeredAt ? Math.round((Date.now() - c.answeredAt) / 1000) : 0;
     var result;
     if (c.answeredAt) { result = 'answered'; }
@@ -98,13 +110,16 @@ var Call = (function () {
 
   function attach(session, dir, number, name) {
     if (cleanupTimer) { clearTimeout(cleanupTimer); cleanupTimer = null; }
+    var known = Contacts.findByNumber(number);
     current = {
-      dir: dir, number: number, name: name || '', session: session,
+      dir: dir, number: number, name: (known ? known.name : (name || '')), session: session,
       state: dir === 'out' ? 'calling' : 'incoming', t0: Date.now(), answeredAt: 0, muted: false,
-      ended: false, rejected: false, message: ''
+      ended: false, rejected: false, message: '', dtmf: ''
     };
     Log.i('call', 'new ' + dir + ' call ' + number);
     lockCpu();
+    if (dir === 'out') { Route.begin(); }
+    else { lockScreen(); Background.bringToFront(); }
 
     var iceReady = false, readyFn = null, iceTimer = null;
     session.on('icecandidate', function (e) {
@@ -208,6 +223,8 @@ var Call = (function () {
     answer: function () {
       if (!current || current.dir !== 'in' || current.state !== 'incoming') { return; }
       Sound.stopRingtone();
+      unlockScreen();
+      Route.begin();
       try { current.session.answer(mediaOptions()); }
       catch (e) { Log.e('call', 'answer failed: ' + e); }
     },
@@ -233,15 +250,27 @@ var Call = (function () {
       } catch (e) { Log.e('call', 'mute failed: ' + e); }
     },
 
+    /* Gecko 48 has no RTCDTMFSender, so RFC 2833 usually throws; SIP INFO needs dtmf_mode=info on the PBX endpoint */
     dtmf: function (tone) {
       if (!current || current.state !== 'incall' || !/^[0-9*#]$/.test(tone)) { return; }
+      var how = 'RFC2833';
       try {
         current.session.sendDTMF(tone, { transportType: 'RFC2833' });
       } catch (e) {
-        Log.w('call', 'RFC2833 DTMF failed (' + e + '), trying INFO');
+        how = 'INFO';
         try { current.session.sendDTMF(tone, { transportType: 'INFO' }); }
-        catch (e2) { Log.e('call', 'DTMF failed: ' + e2); }
+        catch (e2) { Log.e('call', 'DTMF failed: ' + e2); return; }
       }
+      Log.i('call', 'dtmf ' + tone + ' via ' + how);
+      current.dtmf = (current.dtmf + tone).slice(-16);
+      emit('change', current);
+    },
+
+    toggleRoute: function () {
+      if (!current || current.ended) { return false; }
+      var ok = Route.toggle();
+      emit('change', current);
+      return ok;
     },
 
     _sipUri: sipUri

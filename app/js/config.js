@@ -9,7 +9,8 @@ var Config = (function () {
     password: '',
     stun: 'stun:stun.l.google.com:19302',
     background: 'off',
-    ringVolume: 100
+    ringVolume: 100,
+    audioOut: 'ear'          /* default call output: 'ear' (earpiece) | 'speaker' */
   };
   var cache = null;
 
@@ -46,9 +47,11 @@ var Config = (function () {
       case 'stun':
         return (val === '' || /^stuns?:[A-Za-z0-9.\-]+(:\d{1,5})?$/.test(val)) ? '' : 'STUN: stun:gazdă:port';
       case 'background':
-        return (val === 'on' || val === 'off') ? '' : 'Mod invalid';
+        return (val === 'on' || val === 'off' || val === 'low') ? '' : 'Mod invalid';
       case 'ringVolume':
         return (/^\d{1,3}$/.test(val) && Number(val) <= 100) ? '' : 'Volum 0-100';
+      case 'audioOut':
+        return (val === 'ear' || val === 'speaker') ? '' : 'Ieșire invalidă';
       default:
         return 'Câmp necunoscut';
     }
