@@ -1,0 +1,28 @@
+﻿{
+  "version": "0.0.3",
+  "name": "SIP Spike",
+  "description": "Throwaway feasibility test for a SIP client (WebRTC, WSS, wake-lock)",
+  "launch_path": "/index.html",
+  "type": "privileged",
+  "fullscreen": "true",
+  "icons": {
+    "56": "/icon-56.png",
+    "112": "/icon-112.png"
+  },
+  "developer": { "name": "local" },
+  "default_locale": "en-US",
+  "permissions": {
+    "device-storage:sdcard": { "description": "Write test log", "access": "readwrite" },
+    "audio-capture": { "description": "Microphone test" },
+    "audio-channel-content": { "description": "Audio output test" },
+    "systemXHR": { "description": "TLS test" },
+    "wake-lock": {},
+    "power": {},
+    "alarms": { "description": "Alarm test" },
+    "mobiledata": {},
+    "wifidata": {},
+    "feature-detection": {}
+  }
+}
+
+

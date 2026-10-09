@@ -1,0 +1,12 @@
+# secrets / device dumps / extracted archives
+pbxui/
+tls/phone-backup/
+tls/cert9-new.db
+tls/*.db
+*.db
+shot*.png
+# build output
+dist/
+*.zip
+# logs
+sip-logs/
