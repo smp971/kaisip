@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "name": "KaiSIP Diag",
   "description": "Certified audio routing diagnostics (earpiece / speaker)",
   "launch_path": "/index.html",

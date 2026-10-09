@@ -266,6 +266,14 @@ var Call = (function () {
       emit('change', current);
     },
 
+    /* in-call volume, one step = 10% */
+    volume: function (delta) {
+      var v = Sound.setRemoteVolume(Sound.getRemoteVolume() + delta);
+      Log.i('call', 'volume ' + Math.round(v * 100) + '%');
+      if (current) { emit('change', current); }
+      return v;
+    },
+
     toggleRoute: function () {
       if (!current || current.ended) { return false; }
       var ok = Route.toggle();

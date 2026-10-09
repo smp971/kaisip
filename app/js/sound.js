@@ -1,7 +1,7 @@
 /* Ringtone, ringback tone, remote audio playback, vibration. Content audio channel only. ES5. */
 var Sound = (function () {
   'use strict';
-  var ring = null, ringback = null, remote = null, vibTimer = null;
+  var ring = null, ringback = null, remote = null, vibTimer = null, remoteVolume = 1;
 
   /* Build a WAV (8 kHz, 16-bit mono) from segments [{hz1, hz2, ms}] where hz=0 means silence. */
   function wavUrl(segments) {
@@ -77,18 +77,35 @@ var Sound = (function () {
     },
     stopRingback: function () { stopAudio(ringback); ringback = null; },
 
+    /* Gecko 48 ignores the audio channel of a MediaStream element when it is set BEFORE playback starts,
+       so the call always came out of the loudspeaker. Measured on both phones: setting it AFTER play() works. */
     playRemote: function (stream) {
       this.stopRemote();
       try {
-        remote = new Audio();
-        try { remote.mozAudioChannelType = Route.channel(); } catch (e) {}
-        if ('mozSrcObject' in remote) { remote.mozSrcObject = stream; } else { remote.srcObject = stream; }
-        var p = remote.play();
+        var a = new Audio();
+        remote = a;
+        if ('mozSrcObject' in a) { a.mozSrcObject = stream; } else { a.srcObject = stream; }
+        a.volume = remoteVolume;
+        var p = a.play();
         if (p && p.then) { p.then(null, function (err) { Log.w('sound', 'remote play rejected: ' + err); }); }
+        var ch = Route.channel();
+        setTimeout(function () {
+          if (remote !== a) { return; }
+          try { a.mozAudioChannelType = ch; Log.i('sound', 'remote channel requested=' + ch + ' effective=' + a.mozAudioChannelType); }
+          catch (e) { Log.w('sound', 'channel set failed: ' + e); }
+        }, 300);
         Log.i('sound', 'remote audio playing');
       } catch (e2) { Log.e('sound', 'remote audio failed: ' + e2); }
     },
     stopRemote: function () { stopAudio(remote); remote = null; },
+
+    /* in-call volume for the other side's voice: 0.1 .. 1.0 (software; the hardware keys may not reach this channel) */
+    getRemoteVolume: function () { return remoteVolume; },
+    setRemoteVolume: function (v) {
+      remoteVolume = Math.max(0.1, Math.min(1, Math.round(v * 10) / 10));
+      if (remote) { try { remote.volume = remoteVolume; } catch (e) {} }
+      return remoteVolume;
+    },
 
     stopAll: function () { this.stopRingtone(); this.stopRingback(); this.stopRemote(); }
   };

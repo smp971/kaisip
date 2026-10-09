@@ -3,7 +3,7 @@
    When unavailable (privileged install) everything falls back to the 'content' channel (speaker only). ES5. */
 var Route = (function () {
   'use strict';
-  var supportedCache = null;
+  var supportedCache = null, prevVolChannel = 'normal';
 
   function tel() {
     try { return navigator.mozTelephony || null; } catch (e) { return null; }
@@ -51,8 +51,21 @@ var Route = (function () {
     /* audio channel for call audio */
     channel: function () { return supported() ? 'telephony' : 'content'; },
     /* apply the user's default at the start of a call, and put it back to normal afterwards */
-    begin: function () { if (supported()) { setSpeaker(Config.get().audioOut === 'speaker'); } },
-    end: function () { if (supported()) { setSpeaker(false); } },
+    begin: function () {
+      if (!supported()) { return; }
+      setSpeaker(Config.get().audioOut === 'speaker');
+      try {   /* let the side volume keys act on the call channel while the app is in front */
+        var m = navigator.mozAudioChannelManager;
+        prevVolChannel = m.volumeControlChannel || 'normal';
+        m.volumeControlChannel = 'telephony';
+        Log.i('route', 'volume keys -> telephony');
+      } catch (e) { Log.w('route', 'volumeControlChannel: ' + e); }
+    },
+    end: function () {
+      if (!supported()) { return; }
+      setSpeaker(false);
+      try { navigator.mozAudioChannelManager.volumeControlChannel = prevVolChannel; } catch (e) {}
+    },
     /* label for the toggle softkey */
     label: function () {
       if (!supported()) { return ''; }

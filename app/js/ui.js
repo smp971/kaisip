@@ -292,7 +292,8 @@ var UI = (function () {
     }
     if (c.state !== 'incoming' && c.state !== 'ended') {
       var r = routeNow();
-      if (r) { el.appendChild(div('hint', r)); }
+      var vol = 'Volum ' + Math.round(Sound.getRemoteVolume() * 100) + '% (↑↓)';
+      el.appendChild(div('hint', (r ? r + ' · ' : '') + vol));
     }
     if (c.state === 'incoming') { softkeys('Respinge', '', 'Răspunde'); }
     else if (c.state === 'incall') { softkeys(c.muted ? 'Mic pornit' : 'Mute', Route.label(), 'Închide'); }
@@ -307,11 +308,15 @@ var UI = (function () {
       else if (k === 'SoftLeft' || k === 'End' || k === 'Back') { e.preventDefault(); Call.reject(); }
     } else if (c.state === 'incall') {
       if (/^[0-9*#]$/.test(k)) { e.preventDefault(); Call.dtmf(k); }
+      else if (k === 'Up') { e.preventDefault(); Call.volume(0.2); }
+      else if (k === 'Down') { e.preventDefault(); Call.volume(-0.2); }
       else if (k === 'SoftLeft') { e.preventDefault(); Call.toggleMute(); }
       else if (k === 'Enter') { e.preventDefault(); Call.toggleRoute(); }
       else if (k === 'SoftRight' || k === 'End' || k === 'Back') { e.preventDefault(); Call.hangup(); }
     } else if (c.state === 'calling' || c.state === 'ringing') {
-      if (k === 'Enter') { e.preventDefault(); Call.toggleRoute(); }
+      if (k === 'Up') { e.preventDefault(); Call.volume(0.2); }
+      else if (k === 'Down') { e.preventDefault(); Call.volume(-0.2); }
+      else if (k === 'Enter') { e.preventDefault(); Call.toggleRoute(); }
       else if (k === 'SoftRight' || k === 'End' || k === 'Back') { e.preventDefault(); Call.hangup(); }
     }
   }
