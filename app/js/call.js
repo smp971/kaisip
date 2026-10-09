@@ -189,6 +189,7 @@ var Call = (function () {
     dial: function (rawNumber) {
       var number = Util.filterNumber(rawNumber);
       if (!number) { return 'Număr invalid'; }
+      if (number === Config.get().extension) { return 'Acesta e numărul tău'; }
       if (current && !current.ended) { return 'Ești deja într-un apel'; }
       if (Sip.state().state !== 'registered') { return 'Nu ești înregistrat'; }
       var ua = Sip.ua();

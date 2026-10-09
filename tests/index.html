@@ -107,6 +107,15 @@ Config._reset(); try { localStorage.removeItem('kaisip.config'); } catch (e) {}
 eq('sipUri plain', Call._sipUri('207'), 'sip:207@pbx.example.com');
 eq('sipUri star/hash/plus escaped', Call._sipUri('*72#+4'), 'sip:*72%23%2B4@pbx.example.com');
 
+/* ---- Call.dial pre-checks ---- */
+Config.set('extension', '206');
+eq('dial own number refused', Call.dial('206'), 'Acesta e numărul tău');
+eq('dial empty refused', Call.dial(''), 'Număr invalid');
+eq('dial letters only refused', Call.dial('abc'), 'Număr invalid');
+eq('dial other number needs registration', Call.dial('207'), 'Nu ești înregistrat');
+try { localStorage.removeItem('kaisip.config'); } catch (e) {}
+Config._reset();
+
 /* ---- CallLog ---- */
 try { localStorage.removeItem('kaisip.calllog'); } catch (e) {}
 eq('calllog empty', CallLog.list(), []);
