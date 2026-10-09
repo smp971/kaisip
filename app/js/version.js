@@ -1,0 +1,1 @@
+var KAISIP_VERSION = '0.1.2-m1';

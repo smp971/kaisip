@@ -24,7 +24,7 @@ for s in (56, 112):
     if not os.path.exists(path):
         open(path, 'wb').write(png(s))
 
-manifest = json.load(open(os.path.join(APP, 'manifest.webapp'), encoding='utf-8'))
+manifest = json.load(open(os.path.join(APP, 'manifest.webapp'), encoding='utf-8-sig'))
 inner = os.path.join(DIST, 'application.zip')
 count = 0
 with zipfile.ZipFile(inner, 'w', zipfile.ZIP_DEFLATED) as z:

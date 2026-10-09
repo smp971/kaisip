@@ -10,3 +10,5 @@ dist/
 *.zip
 # logs
 sip-logs/
+
+.claude/

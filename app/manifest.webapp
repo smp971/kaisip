@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.2",
   "name": "KaiSIP",
   "description": "SIP client (WebSocket + WebRTC) for KaiOS 2.5",
   "launch_path": "/index.html",
@@ -20,3 +20,4 @@
     "desktop-notification": { "description": "Missed call notifications" }
   }
 }
+

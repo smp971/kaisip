@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>KaiSIP unit tests</title>
+<style>
+  body { font: 14px monospace; background: #111; color: #ddd; padding: 8px; }
+  .ok { color: #6c6; } .bad { color: #f66; font-weight: bold; }
+</style>
+</head>
+<body>
+<h3>KaiSIP unit tests</h3>
+<div id="results"></div>
+<div id="summary"></div>
+<script src="../app/js/util.js"></script>
+<script src="../app/js/config.js"></script>
+<script src="../app/js/errors.js"></script>
+<script>
+var pass = 0, fail = 0, results = document.getElementById('results');
+function eq(name, actual, expected) {
+  var ok = JSON.stringify(actual) === JSON.stringify(expected);
+  if (ok) { pass++; } else { fail++; }
+  var d = document.createElement('div');
+  d.className = ok ? 'ok' : 'bad';
+  d.textContent = (ok ? 'PASS ' : 'FAIL ') + name + (ok ? '' : '  expected=' + JSON.stringify(expected) + ' actual=' + JSON.stringify(actual));
+  results.appendChild(d);
+}
+
+/* ---- Util.filterNumber ---- */
+eq('filterNumber keeps digits * # +', Util.filterNumber('+40 (722) 12*3#4'), '+4072212*3#4');
+eq('filterNumber strips letters/newlines', Util.filterNumber('a1\n2b;3'), '123');
+eq('filterNumber null/undefined', [Util.filterNumber(null), Util.filterNumber(undefined)], ['', '']);
+eq('filterNumber number input', Util.filterNumber(500), '500');
+
+/* ---- Util.fmtDuration ---- */
+eq('fmtDuration 0', Util.fmtDuration(0), '00:00');
+eq('fmtDuration 59', Util.fmtDuration(59), '00:59');
+eq('fmtDuration 61', Util.fmtDuration(61), '01:01');
+eq('fmtDuration 3725', Util.fmtDuration(3725), '62:05');
+eq('fmtDuration negative/NaN', [Util.fmtDuration(-5), Util.fmtDuration(NaN)], ['00:00', '00:00']);
+eq('mask', [Util.mask('abc'), Util.mask(''), Util.mask(null)], ['***', '', '']);
+
+/* ---- Config.validate ---- */
+eq('wssUrl ok', Config.validate('wssUrl', 'wss://pbx.example.com/ws'), '');
+eq('wssUrl port ok', Config.validate('wssUrl', 'wss://host.example:8089/ws'), '');
+eq('wssUrl ws:// rejected', Config.validate('wssUrl', 'ws://pbx.example.com/ws') !== '', true);
+eq('wssUrl http rejected', Config.validate('wssUrl', 'https://x/ws') !== '', true);
+eq('wssUrl injection rejected', Config.validate('wssUrl', 'wss://a.b/ws" onload="x') !== '', true);
+eq('domain ok', Config.validate('domain', 'pbx.example.com'), '');
+eq('domain space rejected', Config.validate('domain', 'pbx example') !== '', true);
+eq('extension ok', Config.validate('extension', '206'), '');
+eq('extension with @ ok', Config.validate('extension', 'a.b@c'), '');
+eq('extension newline rejected', Config.validate('extension', '20\n6') !== '', true);
+eq('password ok', Config.validate('password', 'x'), '');
+eq('password empty rejected', Config.validate('password', '') !== '', true);
+eq('password control char rejected', Config.validate('password', 'ab\u0007c') !== '', true);
+eq('stun empty ok', Config.validate('stun', ''), '');
+eq('stun ok', Config.validate('stun', 'stun:stun.l.google.com:19302'), '');
+eq('stun bad', Config.validate('stun', 'http://x') !== '', true);
+eq('background on/off', [Config.validate('background', 'on'), Config.validate('background', 'off'), Config.validate('background', 'x') !== ''], ['', '', true]);
+eq('ringVolume bounds', [Config.validate('ringVolume', '0'), Config.validate('ringVolume', '100'), Config.validate('ringVolume', '101') !== '', Config.validate('ringVolume', '-1') !== ''], ['', '', true, true]);
+eq('unknown key rejected', Config.validate('nope', 'x') !== '', true);
+
+/* ---- Config get/set/isComplete (uses localStorage) ---- */
+try { localStorage.removeItem('kaisip.config'); } catch (e) {}
+Config._reset();
+eq('defaults: not complete', Config.isComplete(), false);
+eq('defaults wssUrl', Config.get().wssUrl, 'wss://pbx.example.com/ws');
+eq('set bad returns message', Config.set('extension', 'x y') !== '', true);
+eq('set extension', Config.set('extension', '206'), '');
+eq('still incomplete without password', Config.isComplete(), false);
+eq('set password', Config.set('password', 'secret-pass'), '');
+eq('complete now', Config.isComplete(), true);
+eq('ringVolume stored as number', (Config.set('ringVolume', '40'), Config.get().ringVolume), 40);
+Config._reset();
+eq('persisted across reload', [Config.get().extension, Config.get().password, Config.get().ringVolume], ['206', 'secret-pass', 40]);
+try { localStorage.setItem('kaisip.config', '{not json'); } catch (e) {}
+Config._reset();
+eq('corrupt storage falls back to defaults', Config.get().extension, '');
+try { localStorage.removeItem('kaisip.config'); } catch (e) {}
+Config._reset();
+
+/* ---- Errors ---- */
+eq('sip 401', Errors.sip(401), 'Parolă greșită');
+eq('sip 404/486', [Errors.sip(404), Errors.sip(486)], ['Număr inexistent', 'Ocupat']);
+eq('sip 5xx generic', Errors.sip(599), 'Eroare server (599)');
+eq('sip unknown 4xx generic', Errors.sip(418), 'Eroare (418)');
+eq('sip zero/undefined', [Errors.sip(0), Errors.sip(undefined)], ['Eroare necunoscută', 'Eroare necunoscută']);
+eq('registrationState', [Errors.registrationState(401), Errors.registrationState(403), Errors.registrationState(503), Errors.registrationState(undefined)], ['authfail', 'authfail', 'offline', 'offline']);
+eq('text lookup + fallback', [Errors.text('registered'), Errors.text('zzz')], ['Înregistrat', 'zzz']);
+
+var s = document.getElementById('summary');
+s.className = fail ? 'bad' : 'ok';
+s.textContent = '--- ' + pass + ' passed, ' + fail + ' failed ---';
+document.title = 'TESTS ' + pass + ' pass ' + fail + ' fail';
+</script>
+</body>
+</html>
