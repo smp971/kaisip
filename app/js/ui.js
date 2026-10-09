@@ -308,14 +308,14 @@ var UI = (function () {
       else if (k === 'SoftLeft' || k === 'End' || k === 'Back') { e.preventDefault(); Call.reject(); }
     } else if (c.state === 'incall') {
       if (/^[0-9*#]$/.test(k)) { e.preventDefault(); Call.dtmf(k); }
-      else if (k === 'Up') { e.preventDefault(); Call.volume(0.2); }
-      else if (k === 'Down') { e.preventDefault(); Call.volume(-0.2); }
+      else if (k === 'Up') { e.preventDefault(); Call.volume(1); }
+      else if (k === 'Down') { e.preventDefault(); Call.volume(-1); }
       else if (k === 'SoftLeft') { e.preventDefault(); Call.toggleMute(); }
       else if (k === 'Enter') { e.preventDefault(); Call.toggleRoute(); }
       else if (k === 'SoftRight' || k === 'End' || k === 'Back') { e.preventDefault(); Call.hangup(); }
     } else if (c.state === 'calling' || c.state === 'ringing') {
-      if (k === 'Up') { e.preventDefault(); Call.volume(0.2); }
-      else if (k === 'Down') { e.preventDefault(); Call.volume(-0.2); }
+      if (k === 'Up') { e.preventDefault(); Call.volume(1); }
+      else if (k === 'Down') { e.preventDefault(); Call.volume(-1); }
       else if (k === 'Enter') { e.preventDefault(); Call.toggleRoute(); }
       else if (k === 'SoftRight' || k === 'End' || k === 'Back') { e.preventDefault(); Call.hangup(); }
     }

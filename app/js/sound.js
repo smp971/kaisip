@@ -1,7 +1,7 @@
 /* Ringtone, ringback tone, remote audio playback, vibration. Content audio channel only. ES5. */
 var Sound = (function () {
   'use strict';
-  var ring = null, ringback = null, remote = null, vibTimer = null, remoteVolume = 1;
+  var ring = null, ringback = null, remote = null, remoteStream = null, vibTimer = null, remoteVolume = 1;
 
   /* Build a WAV (8 kHz, 16-bit mono) from segments [{hz1, hz2, ms}] where hz=0 means silence. */
   function wavUrl(segments) {
@@ -80,7 +80,20 @@ var Sound = (function () {
     /* Gecko 48 ignores the audio channel of a MediaStream element when it is set BEFORE playback starts,
        so the call always came out of the loudspeaker. Measured on both phones: setting it AFTER play() works. */
     playRemote: function (stream) {
+      if (remoteStream === stream && (Bridge.active() || remote)) { return; }   /* same stream announced again */
       this.stopRemote();
+      remoteStream = stream;
+      /* preferred: the Web Audio bridge (verified earpiece/speaker switching on the 6300) */
+      if (Route.supported()) {
+        try {
+          Bridge.start(stream, remoteVolume);
+          Log.i('sound', 'remote audio via bridge');
+          return;
+        } catch (eb) {
+          Log.w('sound', 'bridge failed (' + eb + '), falling back to <audio>');
+          Bridge.stop();
+        }
+      }
       try {
         var a = new Audio();
         remote = a;
@@ -97,13 +110,14 @@ var Sound = (function () {
         Log.i('sound', 'remote audio playing');
       } catch (e2) { Log.e('sound', 'remote audio failed: ' + e2); }
     },
-    stopRemote: function () { stopAudio(remote); remote = null; },
+    stopRemote: function () { Bridge.stop(); stopAudio(remote); remote = null; remoteStream = null; },
 
-    /* in-call volume for the other side's voice: 0.1 .. 1.0 (software; the hardware keys may not reach this channel) */
+    /* in-call volume for the other side's voice (software). 1 = 100%. Above 100% only through the bridge. */
     getRemoteVolume: function () { return remoteVolume; },
-    setRemoteVolume: function (v) {
-      remoteVolume = Math.max(0.1, Math.min(1, Math.round(v * 10) / 10));
-      if (remote) { try { remote.volume = remoteVolume; } catch (e) {} }
+    stepRemoteVolume: function (dir) {
+      remoteVolume = Util.stepVolume(remoteVolume, dir);
+      Bridge.setGain(remoteVolume);
+      if (remote) { try { remote.volume = Math.min(1, remoteVolume); } catch (e) {} }
       return remoteVolume;
     },
 

@@ -266,9 +266,9 @@ var Call = (function () {
       emit('change', current);
     },
 
-    /* in-call volume, one step = 10% */
-    volume: function (delta) {
-      var v = Sound.setRemoteVolume(Sound.getRemoteVolume() + delta);
+    /* in-call volume: dir = +1 / -1 along Util.VOLUME_STEPS */
+    volume: function (dir) {
+      var v = Sound.stepRemoteVolume(dir);
       Log.i('call', 'volume ' + Math.round(v * 100) + '%');
       if (current) { emit('change', current); }
       return v;

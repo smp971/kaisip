@@ -42,6 +42,14 @@ eq('filterNumber strips letters/newlines', Util.filterNumber('a1\n2b;3'), '123')
 eq('filterNumber null/undefined', [Util.filterNumber(null), Util.filterNumber(undefined)], ['', '']);
 eq('filterNumber number input', Util.filterNumber(500), '500');
 
+/* ---- Util.stepVolume ---- */
+eq('volume up from 100%', Util.stepVolume(1, 1), 1.5);
+eq('volume down from 100%', Util.stepVolume(1, -1), 0.8);
+eq('volume clamps at max', Util.stepVolume(3, 1), 3);
+eq('volume clamps at min', Util.stepVolume(0.2, -1), 0.2);
+eq('volume snaps to nearest step', Util.stepVolume(0.95, 1), 1.5);
+eq('volume full walk up', (function () { var v = 0.2, out = [v], i; for (i = 0; i < 10; i++) { v = Util.stepVolume(v, 1); out.push(v); } return out; }()), [0.2, 0.4, 0.6, 0.8, 1, 1.5, 2, 2.5, 3, 3, 3]);
+
 /* ---- Util.fmtDuration ---- */
 eq('fmtDuration 0', Util.fmtDuration(0), '00:00');
 eq('fmtDuration 59', Util.fmtDuration(59), '00:59');
