@@ -12,6 +12,7 @@ var UI = (function () {
   ];
   var MENU = [
     { id: 'account', label: 'Cont' },
+    { id: 'log', label: 'Jurnal apeluri' },
     { id: 'settings', label: 'Setări avansate' },
     { id: 'reconnect', label: 'Reconectează' },
     { id: 'about', label: 'Despre' }
@@ -21,6 +22,7 @@ var UI = (function () {
   var edit = null;          /* { field, error, reveal } */
   var login = null;         /* { focus: 0|1, reveal, error, ext, pass } */
   var settingsChanged = false;
+  var logSel = 0;
   var toastTimer = null, keyLogged = 0;
 
   function $(id) { return document.getElementById(id); }
@@ -181,6 +183,73 @@ var UI = (function () {
     refreshStatus();
   }
 
+  /* ---------- call screen ---------- */
+  function callStateText(c) {
+    switch (c.state) {
+      case 'calling': return 'Se apelează';
+      case 'ringing': return 'Sună';
+      case 'incoming': return 'Apel primit';
+      case 'incall': return '';
+      case 'ended': return c.message || 'Apel încheiat';
+      default: return '';
+    }
+  }
+
+  function renderCall() {
+    var c = Call.current();
+    if (!c) { backToHome(); return; }
+    var el = $('screen');
+    clear(el);
+    el.appendChild(div('dialnum', c.name || c.number));
+    if (c.name) { el.appendChild(div('hint', c.number)); }
+    el.appendChild(div('callstate', callStateText(c)));
+    var timer = div('calltimer', c.state === 'incall' ? Util.fmtDuration((Date.now() - c.answeredAt) / 1000) : '');
+    timer.id = 'calltimer';
+    el.appendChild(timer);
+    if (c.state === 'incall' && c.muted) { el.appendChild(div('hint', 'Microfon oprit')); }
+    if (c.state === 'incoming') { softkeys('Respinge', '', 'Răspunde'); }
+    else if (c.state === 'incall') { softkeys(c.muted ? 'Activează mic' : 'Mute', '', 'Închide'); }
+    else if (c.state === 'ended') { softkeys('', '', ''); }
+    else { softkeys('', '', 'Anulează'); }
+  }
+
+  function onCallKey(e, k) {
+    var c = Call.current();
+    if (!c) { return; }
+    if (c.state === 'incoming') {
+      if (k === 'SoftRight' || k === 'Call' || k === 'Enter') { e.preventDefault(); Call.answer(); }
+      else if (k === 'SoftLeft' || k === 'End' || k === 'Back') { e.preventDefault(); Call.reject(); }
+    } else if (c.state === 'incall') {
+      if (/^[0-9*#]$/.test(k)) { e.preventDefault(); Call.dtmf(k); }
+      else if (k === 'SoftLeft') { e.preventDefault(); Call.toggleMute(); }
+      else if (k === 'SoftRight' || k === 'End' || k === 'Back') { e.preventDefault(); Call.hangup(); }
+    } else if (c.state === 'calling' || c.state === 'ringing') {
+      if (k === 'SoftRight' || k === 'End' || k === 'Back') { e.preventDefault(); Call.hangup(); }
+    }
+  }
+
+  /* ---------- call log ---------- */
+  function renderLog() {
+    var el = $('screen');
+    clear(el);
+    var h = document.createElement('h1'); h.textContent = 'Jurnal apeluri'; el.appendChild(h);
+    var list = CallLog.list();
+    if (!list.length) {
+      el.appendChild(div('hint', 'Niciun apel'));
+      softkeys('Înapoi', '', '');
+      return;
+    }
+    if (logSel >= list.length) { logSel = list.length - 1; }
+    var i, row, sel = null;
+    for (i = 0; i < list.length; i++) {
+      row = div('item' + (i === logSel ? ' sel' : ''), CallLog.label(list[i]));
+      el.appendChild(row);
+      if (i === logSel) { sel = row; }
+    }
+    if (sel && sel.scrollIntoView) { sel.scrollIntoView(false); }
+    softkeys('Înapoi', 'Apelează', 'Șterge');
+  }
+
   /* ---------- account (login) ---------- */
   var loginPending = false;      /* user went to advanced settings from the login screen */
   var authPrompted = false;      /* avoid reopening login in a loop after a wrong password */
@@ -271,6 +340,7 @@ var UI = (function () {
   function menuChoose() {
     var id = MENU[menuSel].id;
     if (id === 'account') { openLogin(); }
+    else if (id === 'log') { screen = 'log'; logSel = 0; renderLog(); }
     else if (id === 'settings') { openSettings(); }
     else if (id === 'reconnect') { Sip.restart(); toast('Se reconectează'); backToHome(); }
     else if (id === 'about') { screen = 'about'; renderAbout(); }
@@ -307,6 +377,22 @@ var UI = (function () {
       return;
     }
 
+    if (screen === 'call') { onCallKey(e, k); return; }
+
+    if (screen === 'log') {
+      var entries = CallLog.list();
+      if (k === 'Up' && entries.length) { logSel = (logSel + entries.length - 1) % entries.length; renderLog(); e.preventDefault(); }
+      else if (k === 'Down' && entries.length) { logSel = (logSel + 1) % entries.length; renderLog(); e.preventDefault(); }
+      else if ((k === 'Enter' || k === 'Call') && entries.length) {
+        e.preventDefault();
+        var err0 = Call.dial(entries[logSel].number);
+        if (err0) { toast(err0); }
+      }
+      else if (k === 'SoftRight' && entries.length) { e.preventDefault(); CallLog.clear(); logSel = 0; renderLog(); toast('Jurnal șters'); }
+      else if (k === 'SoftLeft' || k === 'Back') { e.preventDefault(); backToHome(); }
+      return;
+    }
+
     if (screen === 'login') {
       if (k === 'Up') { e.preventDefault(); syncLogin(); login.focus = 0; renderLogin(); }
       else if (k === 'Down') { e.preventDefault(); syncLogin(); login.focus = 1; renderLogin(); }
@@ -332,7 +418,10 @@ var UI = (function () {
       else if (k === 'Enter' || k === 'Call') {
         e.preventDefault();
         if (!dial) { toast('Scrie un număr'); }
-        else { toast('Apelurile vin în M2'); Log.i('ui', 'call pressed, not implemented yet'); }
+        else {
+          var err = Call.dial(dial);
+          if (err) { toast(err); } else { dial = ''; }
+        }
       }
       return;
     }
@@ -361,6 +450,14 @@ var UI = (function () {
   return {
     init: function () {
       document.addEventListener('keydown', onKey);
+      Call.on('new', function () { screen = 'call'; renderCall(); });
+      Call.on('change', function () { if (screen === 'call') { renderCall(); } });
+      Call.on('tick', function (c) {
+        var t = $('calltimer');
+        if (screen === 'call' && t && c && c.state === 'incall') { t.textContent = Util.fmtDuration((Date.now() - c.answeredAt) / 1000); }
+      });
+      Call.on('ended', function () { if (screen === 'call') { renderCall(); } });
+      Call.on('cleared', function () { if (screen === 'call') { backToHome(); refreshStatus(); } });
       renderHome();
       refreshStatus();
     },

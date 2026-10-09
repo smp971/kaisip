@@ -65,6 +65,8 @@ var Sip = (function () {
       return;
     }
 
+    emit('ua', ua);
+
     ua.on('connected', function () {
       Log.i('sip', 'websocket connected');
       startKeepalive();
@@ -116,6 +118,7 @@ var Sip = (function () {
     stop: stop,
     restart: restart,
     state: function () { return { state: state, detail: detail }; },
+    ua: function () { return ua; },
     on: function (ev, fn) { (handlers[ev] = handlers[ev] || []).push(fn); }
   };
 }());

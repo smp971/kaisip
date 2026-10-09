@@ -12,3 +12,4 @@ dist/
 sip-logs/
 
 .claude/
+tls/

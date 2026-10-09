@@ -5,6 +5,7 @@
   Log.i('env', navigator.userAgent);
 
   Sip.on('state', function () { UI.refreshStatus(); });
+  Sip.on('ua', function (ua) { Call.bindUA(ua); });
   UI.init();
 
   Sip.start();            /* connects, or sets state "unconfigured" when the account is missing */

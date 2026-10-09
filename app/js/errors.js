@@ -34,6 +34,32 @@ var Errors = (function () {
       return code ? 'Eroare ' + code : 'Eroare necunoscută';
     },
     text: function (key) { return text[key] || key; },
+    /* JsSIP failure cause string -> message */
+    cause: function (cause) {
+      var map = {
+        'Busy': 'Ocupat',
+        'Rejected': 'Respins',
+        'Unavailable': 'Indisponibil',
+        'Not Found': 'Număr inexistent',
+        'Address Incomplete': 'Număr incomplet',
+        'Authentication Error': 'Parolă greșită',
+        'Canceled': 'Apel anulat',
+        'No Answer': 'Fără răspuns',
+        'Expired': 'Fără răspuns',
+        'Request Timeout': 'Fără răspuns',
+        'Connection Error': 'Rețea căzută',
+        'User Denied Media Access': 'Microfon refuzat',
+        'WebRTC Error': 'Eroare audio',
+        'Missing SDP': 'Codecuri incompatibile',
+        'Incompatible SDP': 'Codecuri incompatibile',
+        'RTP Timeout': 'Fără audio',
+        'Bye': 'Apel încheiat',
+        'Terminated': 'Apel încheiat',
+        'Internal Error': 'Eroare internă',
+        'SIP Failure Code': 'Apel eșuat'
+      };
+      return map[cause] || (cause ? 'Apel eșuat' : 'Apel încheiat');
+    },
     /* registration failure -> state key used by the UI */
     registrationState: function (code) {
       code = Number(code);
