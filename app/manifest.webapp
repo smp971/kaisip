@@ -1,13 +1,10 @@
 {
-  "version": "0.7.0",
+  "version": "0.7.1",
   "name": "KaiSIP",
   "description": "SIP client (WebSocket + WebRTC) for KaiOS 2.5",
   "launch_path": "/index.html",
   "type": "certified",
   "fullscreen": "true",
-  "messages": [
-    { "alarm": "/index.html" }
-  ],
   "icons": {
     "56": "/icon-56.png",
     "112": "/icon-112.png"
@@ -19,7 +16,6 @@
     "audio-capture": { "description": "Microphone for calls" },
     "audio-channel-content": { "description": "Call audio output" },
     "wake-lock": { "description": "Stay connected in background mode" },
-    "alarms": { "description": "Reconnect safety net" },
     "desktop-notification": { "description": "Missed call notifications" },
     "audio-channel-telephony": { "description": "Earpiece output for calls" },
     "telephony": { "description": "Speaker / earpiece switch (mozTelephony.speakerEnabled)" }

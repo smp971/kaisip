@@ -3,7 +3,7 @@
 var UI = (function () {
   'use strict';
 
-  var BG_LABELS = { off: 'Oprit', low: 'Economic', on: 'Continuu' };
+  var BG_LABELS = { off: 'Oprit', on: 'Continuu' };
   var OUT_LABELS = { ear: 'Ureche', speaker: 'Difuzor' };
 
   /* Basic settings; connection details live under "Setări avansate". */
@@ -12,7 +12,7 @@ var UI = (function () {
     { key: 'pttChannel', label: 'Canal PTT (număr)' },
     { key: 'pttMembers', label: 'Membri PTT (ex: 206,207)' },
     { key: 'msgSync', label: 'Mesaje primite offline (sincronizare)', toggle: ['on', 'off'], labels: { on: 'Pornit', off: 'Oprit' } },
-    { key: 'background', label: 'Mod fundal', toggle: ['off', 'low', 'on'], labels: BG_LABELS },
+    { key: 'background', label: 'Mod fundal', toggle: ['off', 'on'], labels: BG_LABELS },
     { key: 'audioOut', label: 'Ieșire audio la apel', toggle: ['ear', 'speaker'], labels: OUT_LABELS, needsRoute: true },
     { link: 'adv', label: 'Setări avansate' }
   ];
@@ -20,7 +20,6 @@ var UI = (function () {
     { key: 'wssUrl', label: 'Server WSS', conn: true },
     { key: 'domain', label: 'Domeniu SIP', conn: true },
     { key: 'stun', label: 'STUN', conn: true },
-    { key: 'ecoMinutes', label: 'Mod Economic: verificare la (min)', eco: true },
     { key: 'msgBox', label: 'Număr serviciu mesaje (PBX)' },
     { key: 'vmBox', label: 'Număr mesagerie vocală' }
   ];
@@ -37,7 +36,6 @@ var UI = (function () {
     { id: 'about', label: 'Despre' }
   ];
   var MENU_COLS = 3;
-  var BG_SHORT = { off: 'Oprit', low: 'Economic', on: 'Continuu' };
 
   var screen = 'home', dial = '', menuSel = 0, setSel = 0, logSel = 0, ctSel = 0;
   var settingsMode = 'basic', settingsDirectAdv = false, settingsChanged = false;
@@ -134,7 +132,7 @@ var UI = (function () {
       el.appendChild(div('dline', (last.dir === 'in' ? (last.result === 'missed' ? '! ' : '< ') : '> ') +
         (last.name || displayName(last.number) || '?') + '  ' + Util.fmtClock(new Date(last.ts))));
     }
-    el.appendChild(div('dline dim', 'Fundal: ' + (BG_SHORT[cfg.background] || cfg.background)));
+    el.appendChild(div('dline dim', 'Fundal: ' + (BG_LABELS[cfg.background] || cfg.background)));
   }
   function renderHome() {
     var el = $('screen');
@@ -269,7 +267,6 @@ var UI = (function () {
   }
   function afterChange(f) {
     if (f.key === 'background') { Background.apply(); settingsChanged = true; }
-    else if (f.eco) { Background.apply(); }
     else if (f.conn) { settingsChanged = true; }
   }
   function renderEdit() {

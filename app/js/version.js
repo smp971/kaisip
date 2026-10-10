@@ -1,1 +1,1 @@
-var KAISIP_VERSION = '0.7.0';
+var KAISIP_VERSION = '0.7.1';

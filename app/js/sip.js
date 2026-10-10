@@ -4,13 +4,7 @@ var Sip = (function () {
   'use strict';
   var KEEPALIVE_MS = 20000;
 
-  /* low-power mode: long registration, because timers do not run while the CPU sleeps */
-  function registerExpires() {
-    var bg = Config.get().background;
-    return bg === 'low' ? 1800 : 120;
-  }
-
-  var ua = null, socket = null, keepTimer = null, stopping = false, ensureTimer = null;
+  var ua = null, socket = null, keepTimer = null, stopping = false;
   var state = 'idle', detail = '';
   var handlers = {};
 
@@ -58,7 +52,7 @@ var Sip = (function () {
         authorization_user: c.extension,
         password: c.password,
         register: true,
-        register_expires: registerExpires(),
+        register_expires: 120,
         session_timers: false,
         connection_recovery_min_interval: 2,
         connection_recovery_max_interval: 30,
@@ -83,7 +77,6 @@ var Sip = (function () {
       if (!stopping) { setState('offline', 'conexiune pierdută'); }
     });
     ua.on('registered', function () {
-      if (ensureTimer !== null) { clearTimeout(ensureTimer); ensureTimer = null; Log.i('sip', 'connection verified'); }
       setState('registered');
     });
     ua.on('unregistered', function () {
@@ -112,27 +105,6 @@ var Sip = (function () {
 
   function restart() { Log.i('sip', 'restart'); start(); }
 
-  /* Called after the phone wakes (alarm): make sure the connection really works.
-     Re-registers; if the server does not answer in 12 s the socket is considered dead and we reconnect. */
-  function ensure() {
-    Log.i('sip', 'ensure state=' + state);
-    if (!Config.isComplete()) { return; }
-    if (!ua || state !== 'registered') { restart(); return; }
-    try {
-      if (!socket || !socket.isConnected || !socket.isConnected()) { restart(); return; }
-      if (ensureTimer !== null) { clearTimeout(ensureTimer); }
-      ensureTimer = setTimeout(function () {
-        ensureTimer = null;
-        Log.w('sip', 'no answer to verification, reconnecting');
-        restart();
-      }, 12000);
-      ua.register();
-    } catch (e) {
-      Log.w('sip', 'ensure failed: ' + e);
-      restart();
-    }
-  }
-
   window.addEventListener('online', function () {
     Log.i('sip', 'browser online');
     if (state === 'offline' && Config.isComplete()) { restart(); }
@@ -146,7 +118,6 @@ var Sip = (function () {
     start: start,
     stop: stop,
     restart: restart,
-    ensure: ensure,
     state: function () { return { state: state, detail: detail }; },
     ua: function () { return ua; },
     on: function (ev, fn) { (handlers[ev] = handlers[ev] || []).push(fn); }

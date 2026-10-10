@@ -14,9 +14,8 @@ servername=Asterisk
 enabled=yes
 bindaddr=127.0.0.1
 bindport=8098
-; an idle WebSocket is closed after session_inactivity ms (default 30000). The app sends a ping every 20 s,
-; but in the "Economic" background mode the phone sleeps, so give it room:
-session_inactivity=3600000
+; the app sends a keep-alive every 20 s, so the default is enough; raise it if idle phones get dropped:
+;session_inactivity=3600000
 ```
 
 `/etc/asterisk/pjsip.conf` (or an included file):
@@ -203,7 +202,7 @@ The **Voicemail** menu entry dials the number set in **Advanced settings -> voic
 
 ## 7. Quick check from a computer
 
-To check that the server keeps an idle socket open (needed for the Economic background mode) run
+To check that the server keeps an idle registered socket open run
 `python tools/ws_idle_probe.py pbx.example.com /ws 100`. It sends one SIP request and then stays silent; the result must be
 *still open after 100 s*. A socket that never sends any SIP request is closed after about 32 s by design; that is not what
 KaiSIP does.

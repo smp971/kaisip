@@ -9,7 +9,7 @@
   Sip.on('ua', function (ua) { Call.bindUA(ua); Chat.bindUA(ua); Mwi.bindUA(ua); });
   UI.init();
 
-  Background.apply();     /* wake lock / alarm according to the saved mode */
+  Background.apply();     /* wake lock according to the saved mode */
   Sip.start();            /* connects, or sets state "unconfigured" when the account is missing */
   if (!Config.isComplete()) { UI.openLogin(); }
 

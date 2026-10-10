@@ -11,7 +11,6 @@ var Config = (function () {
     background: 'off',
     ringVolume: 100,
     audioOut: 'ear',         /* default call output: 'ear' (earpiece) | 'speaker' */
-    ecoMinutes: 15,          /* Economic background mode: minutes between connection checks (alarm) */
     pttChannel: '',          /* number dialled for push-to-talk (a Page() group on the PBX); empty = PTT off */
     pttMembers: '',          /* extensions whose PTT calls this phone answers automatically, e.g. "206,207" */
     msgSync: 'on',           /* ask the PBX for messages stored while this phone was offline */
@@ -35,6 +34,7 @@ var Config = (function () {
     for (k in defaults) {
       if (defaults.hasOwnProperty(k)) { cfg[k] = stored.hasOwnProperty(k) ? stored[k] : defaults[k]; }
     }
+    if (cfg.background === 'low') { cfg.background = 'on'; }   /* the removed Economic mode becomes Continuous */
     return cfg;
   }
 
@@ -58,13 +58,11 @@ var Config = (function () {
       case 'stun':
         return (val === '' || /^stuns?:[A-Za-z0-9.\-]+(:\d{1,5})?$/.test(val)) ? '' : 'STUN: stun:gazdă:port';
       case 'background':
-        return (val === 'on' || val === 'off' || val === 'low') ? '' : 'Mod invalid';
+        return (val === 'on' || val === 'off') ? '' : 'Mod invalid';
       case 'ringVolume':
         return (/^\d{1,3}$/.test(val) && Number(val) <= 100) ? '' : 'Volum 0-100';
       case 'audioOut':
         return (val === 'ear' || val === 'speaker') ? '' : 'Ieșire invalidă';
-      case 'ecoMinutes':
-        return (/^\d{1,2}$/.test(val) && Number(val) >= 1 && Number(val) <= 60) ? '' : 'Minute 1-60';
       case 'msgSync':
         return (val === 'on' || val === 'off') ? '' : 'Valoare invalidă';
       case 'msgBox':
@@ -109,7 +107,7 @@ var Config = (function () {
       var err = validate(key, val);
       if (err) { return err; }
       var cfg = this.get();
-      cfg[key] = (key === 'ringVolume' || key === 'ecoMinutes') ? Number(val)
+      cfg[key] = key === 'ringVolume' ? Number(val)
         : (key === 'pttMembers' ? normalizeList(val) : String(val));
       return save() ? '' : 'Nu s-a putut salva';
     },

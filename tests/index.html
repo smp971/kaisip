@@ -149,12 +149,16 @@ try { localStorage.removeItem('kaisip.config'); } catch (e) {}
 Config._reset();
 
 /* ---- Config: new settings ---- */
-eq('background low valid', [Config.validate('background', 'low'), Config.validate('background', 'on'), Config.validate('background', 'off')], ['', '', '']);
+eq('background valid', [Config.validate('background', 'on'), Config.validate('background', 'off')], ['', '']);
+eq('background economic removed', Config.validate('background', 'low') !== '', true);
+try { localStorage.setItem('kaisip.config', JSON.stringify({ background: 'low' })); } catch (e) {}
+Config._reset();
+eq('stored economic mode becomes continuous', Config.get().background, 'on');
+try { localStorage.removeItem('kaisip.config'); } catch (e) {}
+Config._reset();
 eq('background invalid', Config.validate('background', 'turbo') !== '', true);
 eq('audioOut valid/invalid', [Config.validate('audioOut', 'ear'), Config.validate('audioOut', 'speaker'), Config.validate('audioOut', 'x') !== ''], ['', '', true]);
 eq('audioOut default', Config.defaults.audioOut, 'ear');
-eq('ecoMinutes bounds', [Config.validate('ecoMinutes', '1'), Config.validate('ecoMinutes', '60'), Config.validate('ecoMinutes', '0') !== '', Config.validate('ecoMinutes', '61') !== '', Config.validate('ecoMinutes', 'x') !== ''], ['', '', true, true, true]);
-eq('ecoMinutes default 15', Config.defaults.ecoMinutes, 15);
 
 /* ---- PTT settings ---- */
 eq('normalizeList separators', Config.normalizeList('206; 207 ,208'), '206,207,208');

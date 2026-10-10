@@ -19,7 +19,7 @@ and a call log, and can stay connected in the background. Built with plain ES5 J
 - **Voicemail**: waiting-message count (MWI) and a menu entry that calls the voicemail number (default `*97`)
 - Contacts (add, edit, delete), call log (last 20), names shown on incoming calls
 - First-run **Account** screen: server, extension, password
-- Background modes: **Off**, **Economic** (no permanent wake lock, alarm-based check), **Continuous** (wake lock)
+- Background mode: **Off** or **Continuous** (CPU wake lock, keeps the connection with the screen off)
 - Logs to `sip-logs/` on the SD card (never contains passwords)
 
 ## What you need
@@ -102,9 +102,6 @@ Measured: about 2 seconds from pressing OK to the open-channel beep (a call has 
 ## Background mode
 
 - **Off** - connected while the app is open.
-- **Economic** - the phone is not kept awake; a system alarm wakes it every 15 minutes to verify the connection and the
-  registration lasts 30 minutes. The PBX must keep idle WebSockets open (`session_inactivity`, see PBX-SETUP).
-  Experimental: whether incoming calls ring with the screen off depends on the phone and the network.
 - **Continuous** - holds a CPU wake lock. Reliable, costs battery.
 
 ## Known limits
