@@ -53,6 +53,11 @@ select the zip, so use the next method there.
 2. `python tools/rdp_install.py <adb-serial> install kaisip-<v>-gerdapkg.zip kaisip.local`
    (set `ADB=<path to adb>` if adb is not on your PATH). Installing again with the same id updates the app.
 
+**Updating without losing data (GerdaOS and any rooted phone):** installers such as GerdaPkg refuse to install an app that is
+already installed. `python tools/adb_update_app.py <adb-serial> <installed-app-id> kaisip-<v>-gerdapkg.zip` replaces the installed
+files in place (backup first) and keeps your account, contacts and messages. The id is the folder name under
+`/data/local/webapps` (`adb shell ls /data/local/webapps`).
+
 The certified build needs a phone that accepts certified apps; the debugger route allows it on the Nokia 6300 4G
 (stock 2.5.4) and GerdaPkg allows it on the 8110. If a phone refuses, use the *privileged* package.
 
