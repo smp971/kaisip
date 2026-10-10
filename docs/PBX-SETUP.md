@@ -203,6 +203,13 @@ The **Voicemail** menu entry dials the number set in **Advanced settings -> voic
 
 ## 7. Quick check from a computer
 
+To check that the server keeps an idle socket open (needed for the Economic background mode) run
+`python tools/ws_idle_probe.py pbx.example.com /ws 100`. It sends one SIP request and then stays silent; the result must be
+*still open after 100 s*. A socket that never sends any SIP request is closed after about 32 s by design; that is not what
+KaiSIP does.
+
+Plain WebSocket check:
+
 ```
 curl -i --http1.1 -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Version: 13" \
      -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" -H "Sec-WebSocket-Protocol: sip" https://pbx.example.com/ws
