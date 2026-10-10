@@ -93,13 +93,16 @@ var Call = (function () {
   }
   function stopTick() { if (tickTimer !== null) { clearInterval(tickTimer); tickTimer = null; } }
 
+  /* a PTT transmission we send has nothing to play back: skip the audio bridge on the sender */
+  function wantsRemoteAudio() { return !(current && current.ptt && current.dir === 'out'); }
+
   function hookPeerConnection(pc) {
     pc.addEventListener('addstream', function (ev) {
       Log.i('call', 'remote stream added');
-      Sound.playRemote(ev.stream);
+      if (wantsRemoteAudio()) { Sound.playRemote(ev.stream); }
     });
     pc.addEventListener('track', function (ev) {
-      if (ev.streams && ev.streams[0]) { Log.i('call', 'remote track added'); Sound.playRemote(ev.streams[0]); }
+      if (ev.streams && ev.streams[0]) { Log.i('call', 'remote track added'); if (wantsRemoteAudio()) { Sound.playRemote(ev.streams[0]); } }
     });
     pc.addEventListener('iceconnectionstatechange', function () {
       Log.i('call', 'ice=' + pc.iceConnectionState);
@@ -186,7 +189,7 @@ var Call = (function () {
       if (!current.answeredAt) { current.answeredAt = Date.now(); setState('incall'); startTick(); }
       try {   /* in case the stream event was missed */
         var rs = session.connection && session.connection.getRemoteStreams ? session.connection.getRemoteStreams() : [];
-        if (rs.length) { Sound.playRemote(rs[0]); }
+        if (rs.length && wantsRemoteAudio()) { Sound.playRemote(rs[0]); }
       } catch (err) { Log.w('call', 'getRemoteStreams: ' + err); }
     });
     session.on('muted', function () { if (current) { current.muted = true; emit('change', current); } });

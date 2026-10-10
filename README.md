@@ -83,6 +83,7 @@ default output, advanced), Reconnect, About.
 
 **Walkie-talkie:** open it from the menu and **hold OK** to talk; release to listen. A beep means the channel is open.
 One person talks at a time. It needs the PBX channel from docs/PBX-SETUP.md and works only between KaiSIP phones.
+Measured: about 2 seconds from pressing OK to the open-channel beep (a call has to be set up each time).
 
 ## Background mode
 
