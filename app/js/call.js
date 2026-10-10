@@ -34,6 +34,17 @@ var Call = (function () {
     return 'sip:' + encodeURIComponent(number) + '@' + Config.get().domain;
   }
 
+  /* true only when the browser can really send RFC 2833 events on this call */
+  function hasRtpDtmf(session) {
+    try {
+      var pc = session.connection, senders = pc && pc.getSenders ? pc.getSenders() : [], i;
+      for (i = 0; i < senders.length; i++) {
+        if (senders[i].track && senders[i].track.kind === 'audio' && senders[i].dtmf) { return true; }
+      }
+    } catch (e) { /* fall through */ }
+    return false;
+  }
+
   function setState(st) {
     if (!current || current.state === st) { return; }
     current.state = st;
@@ -250,19 +261,32 @@ var Call = (function () {
       } catch (e) { Log.e('call', 'mute failed: ' + e); }
     },
 
-    /* Gecko 48 has no RTCDTMFSender, so RFC 2833 usually throws; SIP INFO needs dtmf_mode=info on the PBX endpoint */
+    /* Gecko 48 has no RTCDTMFSender, and JsSIP then silently does nothing for RFC 2833.
+       So: RTP DTMF only when a sender really exists, otherwise SIP INFO (needs dtmf_mode=info on the PBX endpoint). */
     dtmf: function (tone) {
       if (!current || current.state !== 'incall' || !/^[0-9*#]$/.test(tone)) { return; }
-      var how = 'RFC2833';
-      try {
-        current.session.sendDTMF(tone, { transportType: 'RFC2833' });
-      } catch (e) {
-        how = 'INFO';
-        try { current.session.sendDTMF(tone, { transportType: 'INFO' }); }
-        catch (e2) { Log.e('call', 'DTMF failed: ' + e2); return; }
-      }
-      Log.i('call', 'dtmf ' + tone + ' via ' + how);
+      var session = current.session;
       current.dtmf = (current.dtmf + tone).slice(-16);
+      if (hasRtpDtmf(session)) {
+        try {
+          session.sendDTMF(tone, { transportType: 'RFC2833' });
+          Log.i('call', 'dtmf ' + tone + ' via RFC2833');
+        } catch (e) { Log.e('call', 'RFC2833 DTMF failed: ' + e); }
+      } else {
+        try {
+          session.sendInfo('application/dtmf-relay', 'Signal=' + tone + '\r\nDuration=160', {
+            eventHandlers: {
+              succeeded: function (d) { Log.i('call', 'dtmf ' + tone + ' INFO accepted (' + (d && d.response && d.response.status_code) + ')'); },
+              failed: function (d) {
+                var code = d && d.response && d.response.status_code;
+                Log.w('call', 'dtmf ' + tone + ' INFO rejected (' + code + ')');
+                if (current) { current.dtmfError = code ? ('Server: ' + code) : 'fără răspuns'; emit('change', current); }
+              }
+            }
+          });
+          Log.i('call', 'dtmf ' + tone + ' sent via INFO');
+        } catch (e2) { Log.e('call', 'INFO DTMF failed: ' + e2); }
+      }
       emit('change', current);
     },
 

@@ -289,6 +289,7 @@ var UI = (function () {
     if (c.state === 'incall') {
       if (c.muted) { el.appendChild(div('hint', 'Microfon oprit')); }
       if (c.dtmf) { el.appendChild(div('hint', 'Cifre: ' + c.dtmf)); }
+      if (c.dtmfError) { el.appendChild(div('hint bad', 'DTMF refuzat (' + c.dtmfError + ')')); }
     }
     if (c.state !== 'incoming' && c.state !== 'ended') {
       var r = routeNow();
