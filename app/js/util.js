@@ -23,6 +23,17 @@ var Util = (function () {
       var next = Math.max(0, Math.min(steps.length - 1, best + (dir > 0 ? 1 : -1)));
       return steps[next];
     },
+    /* Date -> "08:05" */
+    fmtClock: function (d) {
+      function p(n) { return (n < 10 ? '0' : '') + n; }
+      return p(d.getHours()) + ':' + p(d.getMinutes());
+    },
+    /* Date -> "vin 10 oct" */
+    fmtDate: function (d) {
+      var days = ['dum', 'lun', 'mar', 'mie', 'joi', 'vin', 'sâm'];
+      var months = ['ian', 'feb', 'mar', 'apr', 'mai', 'iun', 'iul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+      return days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()];
+    },
     mask: function (s) {
       s = String(s || '');
       return new Array(s.length + 1).join('*');

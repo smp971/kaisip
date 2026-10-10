@@ -15,7 +15,8 @@ var Config = (function () {
     pttChannel: '',          /* number dialled for push-to-talk (a Page() group on the PBX); empty = PTT off */
     pttMembers: '',          /* extensions whose PTT calls this phone answers automatically, e.g. "206,207" */
     msgSync: 'on',           /* ask the PBX for messages stored while this phone was offline */
-    msgBox: '*98'            /* the PBX service number that answers "SYNC" with the stored messages */
+    msgBox: '*98',           /* the PBX service number that answers "SYNC" with the stored messages */
+    vmBox: '*97'             /* the number that opens the voicemail menu (Asterisk VoiceMailMain) */
   };
 
   /* any run of non-digits becomes one comma: "206; 207 ,208" -> "206,207,208" */
@@ -67,6 +68,7 @@ var Config = (function () {
       case 'msgSync':
         return (val === 'on' || val === 'off') ? '' : 'Valoare invalidă';
       case 'msgBox':
+      case 'vmBox':
         return /^[0-9*#+]{1,12}$/.test(val) ? '' : 'Doar cifre, * # +';
       case 'pttChannel':
         return (val === '' || /^\d{1,10}$/.test(val)) ? '' : 'Doar cifre (max 10)';

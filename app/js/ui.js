@@ -21,18 +21,23 @@ var UI = (function () {
     { key: 'domain', label: 'Domeniu SIP', conn: true },
     { key: 'stun', label: 'STUN', conn: true },
     { key: 'ecoMinutes', label: 'Mod Economic: verificare la (min)', eco: true },
-    { key: 'msgBox', label: 'Număr serviciu mesaje (PBX)' }
+    { key: 'msgBox', label: 'Număr serviciu mesaje (PBX)' },
+    { key: 'vmBox', label: 'Număr mesagerie vocală' }
   ];
+  /* 3x3 grid; digits 1-9 open the matching entry */
   var MENU = [
-    { id: 'account', label: 'Cont' },
     { id: 'contacts', label: 'Contacte' },
     { id: 'chat', label: 'Mesaje' },
-    { id: 'ptt', label: 'Walkie-talkie (PTT)' },
-    { id: 'log', label: 'Jurnal apeluri' },
+    { id: 'voicemail', label: 'Vocală' },
+    { id: 'ptt', label: 'PTT' },
+    { id: 'log', label: 'Jurnal' },
     { id: 'settings', label: 'Setări' },
-    { id: 'reconnect', label: 'Reconectează' },
+    { id: 'account', label: 'Cont' },
+    { id: 'reconnect', label: 'Reconect.' },
     { id: 'about', label: 'Despre' }
   ];
+  var MENU_COLS = 3;
+  var BG_SHORT = { off: 'Oprit', low: 'Economic', on: 'Continuu' };
 
   var screen = 'home', dial = '', menuSel = 0, setSel = 0, logSel = 0, ctSel = 0;
   var settingsMode = 'basic', settingsDirectAdv = false, settingsChanged = false;
@@ -103,9 +108,38 @@ var UI = (function () {
   }
 
   /* ---------- home ---------- */
+  function chip(label, n, cls) {
+    var c = div('chip' + (n ? ' hot' : '') + (cls ? ' ' + cls : ''));
+    c.appendChild(div('n', String(n)));
+    c.appendChild(div('l', label));
+    return c;
+  }
+  /* shown while no digit has been typed */
+  function renderDashboard(el) {
+    var now = new Date(), s = Sip.state();
+    var cfg = Config.get(), last = CallLog.list()[0], row;
+    el.appendChild(div('clock', Util.fmtClock(now)));
+    el.appendChild(div('date', Util.fmtDate(now)));
+    row = div('dstatus');
+    row.appendChild(div('dot2 ' + s.state));
+    row.appendChild(document.createTextNode(s.state === 'registered' ? 'Înregistrat · ' + cfg.extension
+      : (s.state === 'unconfigured' ? 'Fără cont: Meniu → Cont' : (s.detail || Errors.text(s.state)))));
+    el.appendChild(row);
+    row = div('chips');
+    row.appendChild(chip('Mesaje', Messages.unreadTotal()));
+    row.appendChild(chip('Pierdute', CallLog.missedNew()));
+    row.appendChild(chip('Vocale', Mwi.count()));
+    el.appendChild(row);
+    if (last) {
+      el.appendChild(div('dline', (last.dir === 'in' ? (last.result === 'missed' ? '! ' : '< ') : '> ') +
+        (last.name || displayName(last.number) || '?') + '  ' + Util.fmtClock(new Date(last.ts))));
+    }
+    el.appendChild(div('dline dim', 'Fundal: ' + (BG_SHORT[cfg.background] || cfg.background)));
+  }
   function renderHome() {
     var el = $('screen');
     clear(el);
+    if (!dial) { renderDashboard(el); softkeys('Meniu', 'Apel', 'Contacte'); return; }
     el.appendChild(div('dialnum', dial || ''));
     var s = Sip.state(), hint = '';
     var known = dial ? Contacts.findByNumber(dial) : null;
@@ -122,22 +156,32 @@ var UI = (function () {
   function renderMenu() {
     var el = $('screen');
     clear(el);
-    heading(el, 'Meniu');
-    var i, label, u = Messages.unreadTotal();
+    var i, cell, badge, n, grid = div('grid');
     for (i = 0; i < MENU.length; i++) {
-      label = MENU[i].label + (MENU[i].id === 'chat' && u ? ' (' + u + ')' : '');
-      el.appendChild(div('item' + (i === menuSel ? ' sel' : ''), label));
+      cell = div('cell' + (i === menuSel ? ' sel' : ''));
+      cell.appendChild(Icons.make(MENU[i].id, 30));
+      cell.appendChild(div('cl', MENU[i].label));
+      n = MENU[i].id === 'chat' ? Messages.unreadTotal() : (MENU[i].id === 'voicemail' ? Mwi.count() : 0);
+      if (n) { badge = div('badge', String(n)); cell.appendChild(badge); }
+      grid.appendChild(cell);
     }
+    el.appendChild(grid);
     softkeys('Înapoi', 'Alege', '');
   }
   function openMenu() { screen = 'menu'; menuSel = 0; renderMenu(); }
+  function openLog() { CallLog.markSeen(); screen = 'log'; logSel = 0; renderLog(); }
+  function callVoicemail() {
+    var er = Call.dial(Config.get().vmBox);
+    if (er) { toast(er); }
+  }
   function menuChoose() {
     var id = MENU[menuSel].id;
-    if (id === 'account') { openLogin(); }
+    if (id === 'voicemail') { callVoicemail(); }
+    else if (id === 'account') { openLogin(); }
     else if (id === 'contacts') { openContacts(); }
     else if (id === 'chat') { openChats(); }
     else if (id === 'ptt') { openPtt(); }
-    else if (id === 'log') { screen = 'log'; logSel = 0; renderLog(); }
+    else if (id === 'log') { openLog(); }
     else if (id === 'settings') { openSettings('basic'); }
     else if (id === 'reconnect') { Sip.restart(); toast('Se reconectează'); backToHome(); }
     else if (id === 'about') { screen = 'about'; renderAbout(); }
@@ -154,7 +198,13 @@ var UI = (function () {
     clear(el);
     heading(el, ctx.title);
     var i;
-    for (i = 0; i < ctx.items.length; i++) { el.appendChild(div('item' + (i === ctx.sel ? ' sel' : ''), ctx.items[i].label)); }
+    var selected = null, row;
+    for (i = 0; i < ctx.items.length; i++) {
+      row = div('item' + (i === ctx.sel ? ' sel' : ''), ctx.items[i].label);
+      el.appendChild(row);
+      if (i === ctx.sel) { selected = row; }
+    }
+    if (selected && selected.scrollIntoView) { selected.scrollIntoView(false); }
     softkeys('Înapoi', 'Alege', '');
   }
   function closeCtx() { var b = ctx ? ctx.back : 'home'; ctx = null; goto(b); }
@@ -797,6 +847,8 @@ var UI = (function () {
       else if (k === 'Back') { if (dial) { e.preventDefault(); dial = dial.slice(0, -1); renderHome(); } }
       else if (k === 'SoftLeft') { e.preventDefault(); openMenu(); }
       else if (k === 'SoftRight') { e.preventDefault(); openContacts(); }
+      else if (k === 'Up' && !dial) { e.preventDefault(); openChats(); }
+      else if (k === 'Down' && !dial) { e.preventDefault(); openLog(); }
       else if (k === 'Enter' || k === 'Call') {
         e.preventDefault();
         if (!dial) { toast('Scrie un număr'); }
@@ -806,8 +858,11 @@ var UI = (function () {
     }
 
     if (screen === 'menu') {
-      if (k === 'Up') { e.preventDefault(); menuSel = wrap(menuSel, MENU.length, -1); renderMenu(); }
-      else if (k === 'Down') { e.preventDefault(); menuSel = wrap(menuSel, MENU.length, 1); renderMenu(); }
+      if (k === 'ArrowLeft') { e.preventDefault(); menuSel = wrap(menuSel, MENU.length, -1); renderMenu(); }
+      else if (k === 'ArrowRight') { e.preventDefault(); menuSel = wrap(menuSel, MENU.length, 1); renderMenu(); }
+      else if (k === 'Up') { e.preventDefault(); menuSel = (menuSel + MENU.length - MENU_COLS) % MENU.length; renderMenu(); }
+      else if (k === 'Down') { e.preventDefault(); menuSel = (menuSel + MENU_COLS) % MENU.length; renderMenu(); }
+      else if (isDigit(k) && k !== '0' && Number(k) <= MENU.length) { e.preventDefault(); menuSel = Number(k) - 1; menuChoose(); }
       else if (k === 'Enter') { e.preventDefault(); menuChoose(); }
       else if (k === 'SoftLeft' || k === 'Back') { e.preventDefault(); backToHome(); }
       return;
@@ -853,6 +908,10 @@ var UI = (function () {
         refreshStatus();
       });
       Chat.on('changed', function (d) { if (screen === 'chat' && chatNum === d.number) { renderChat(); } });
+      Mwi.on(function () { refreshStatus(); });
+      /* keep the dashboard clock right; nothing runs while the screen is hidden */
+      setInterval(function () { if (screen === 'home' && !dial && !document.hidden) { renderHome(); } }, 20000);
+      document.addEventListener('visibilitychange', function () { if (!document.hidden && screen === 'home') { renderHome(); } });
       renderHome();
       refreshStatus();
     },

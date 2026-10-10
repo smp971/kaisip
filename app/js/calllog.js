@@ -3,6 +3,7 @@
 var CallLog = (function () {
   'use strict';
   var KEY = 'kaisip.calllog';
+  var SEEN_KEY = 'kaisip.calllogseen';
   var MAX = 20;
 
   function load() {
@@ -35,6 +36,16 @@ var CallLog = (function () {
       return list.length;
     },
     clear: function () { save([]); },
+    /* incoming calls that went unanswered since the log screen was last opened */
+    missedNew: function () {
+      var seen = 0, n = 0, list = load(), i;
+      try { seen = Number(localStorage.getItem(SEEN_KEY)) || 0; } catch (e) { seen = 0; }
+      for (i = 0; i < list.length; i++) {
+        if (list[i].dir === 'in' && list[i].result === 'missed' && list[i].ts > seen) { n++; }
+      }
+      return n;
+    },
+    markSeen: function () { try { localStorage.setItem(SEEN_KEY, String(Date.now())); } catch (e) {} },
     /* one-line label for the log screen */
     label: function (e) {
       var arrow = e.dir === 'in' ? (e.result === 'missed' ? '! ' : '< ') : '> ';

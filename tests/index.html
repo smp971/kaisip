@@ -27,6 +27,7 @@ var Background = { bringToFront: function () {} };
 <script src="../app/js/contacts.js"></script>
 <script src="../app/js/messages.js"></script>
 <script src="../app/js/call.js"></script>
+<script src="../app/js/mwi.js"></script>
 <script>
 var pass = 0, fail = 0, results = document.getElementById('results');
 function eq(name, actual, expected) {
@@ -284,6 +285,31 @@ eq('label missed incoming', CallLog.label({ dir: 'in', result: 'missed', number:
 eq('label outgoing', CallLog.label({ dir: 'out', result: 'answered', number: '207', name: '', ts: new Date(2026, 9, 9, 14, 30).getTime() }), '> 207  14:30');
 CallLog.clear();
 eq('calllog clear', CallLog.list(), []);
+
+
+/* ---- dashboard helpers ---- */
+eq('fmtClock pads', Util.fmtClock(new Date(2026, 9, 10, 8, 5)), '08:05');
+eq('fmtDate', Util.fmtDate(new Date(2026, 9, 10)), 'sâm 10 oct');
+try { localStorage.removeItem('kaisip.calllogseen'); } catch (e) {}
+CallLog.clear();
+CallLog.add({ dir: 'in', number: '204', result: 'missed', ts: 5000 });
+CallLog.add({ dir: 'in', number: '205', result: 'answered', ts: 6000 });
+CallLog.add({ dir: 'out', number: '206', result: 'missed', ts: 7000 });
+eq('missedNew counts only unanswered incoming', CallLog.missedNew(), 1);
+CallLog.markSeen();
+eq('missedNew is 0 after markSeen', CallLog.missedNew(), 0);
+CallLog.add({ dir: 'in', number: '207', result: 'missed', ts: Date.now() + 1000 });
+eq('missedNew counts calls after markSeen', CallLog.missedNew(), 1);
+CallLog.clear();
+try { localStorage.removeItem('kaisip.calllogseen'); } catch (e) {}
+
+/* ---- Mwi.parse ---- */
+eq('mwi two new', Mwi.parse('Messages-Waiting: yes\r\nVoice-Message: 2/5 (0/0)\r\n'), { waiting: true, newMsgs: 2, oldMsgs: 5 });
+eq('mwi none', Mwi.parse('Messages-Waiting: no\r\nVoice-Message: 0/3 (0/0)'), { waiting: false, newMsgs: 0, oldMsgs: 3 });
+eq('mwi waiting without count', Mwi.parse('Messages-Waiting: yes'), { waiting: true, newMsgs: 1, oldMsgs: 0 });
+eq('mwi count only', Mwi.parse('Voice-Message: 4/0'), { waiting: true, newMsgs: 4, oldMsgs: 0 });
+eq('mwi garbage', Mwi.parse(null), { waiting: false, newMsgs: 0, oldMsgs: 0 });
+eq('vmBox default and validation', [Config.defaults.vmBox, Config.validate('vmBox', '*97'), Config.validate('vmBox', 'ab') !== ''], ['*97', '', true]);
 
 var s = document.getElementById('summary');
 s.className = fail ? 'bad' : 'ok';

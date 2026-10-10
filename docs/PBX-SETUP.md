@@ -189,7 +189,19 @@ Notes:
   sync off in **Settings**.
 - Not hardened: anyone registered on the PBX can message anyone. Cap the stored messages per extension if that matters.
 
-## 6. Quick check from a computer
+## 6. Voicemail indicator (optional)
+
+If the endpoint has a mailbox, Asterisk sends the phone an unsolicited `message-summary` NOTIFY and KaiSIP shows the number of
+new voicemails on the home screen and on the menu icon. In `pjsip.conf`, on the endpoint:
+
+```ini
+mailboxes=206@default
+```
+
+The **Voicemail** menu entry dials the number set in **Advanced settings -> voicemail number** (default `*97`, the usual
+`VoiceMailMain()` extension). DTMF (`dtmf_mode=info`) is used to navigate the voicemail menu.
+
+## 7. Quick check from a computer
 
 ```
 curl -i --http1.1 -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Version: 13" \

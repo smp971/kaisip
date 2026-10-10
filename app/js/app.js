@@ -6,7 +6,7 @@
   Log.i('app', 'earpiece routing available: ' + Route.supported() + ' | headphones: ' + Route.headphones());
 
   Sip.on('state', function () { UI.refreshStatus(); });
-  Sip.on('ua', function (ua) { Call.bindUA(ua); Chat.bindUA(ua); });
+  Sip.on('ua', function (ua) { Call.bindUA(ua); Chat.bindUA(ua); Mwi.bindUA(ua); });
   UI.init();
 
   Background.apply();     /* wake lock / alarm according to the saved mode */

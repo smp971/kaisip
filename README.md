@@ -14,6 +14,9 @@ and a call log, and can stay connected in the background. Built with plain ES5 J
 - **Chat** over SIP MESSAGE (works with Linphone too), unread counter, notifications, messages kept for offline phones
   (needs the PBX dialplan in docs/PBX-SETUP.md)
 - **Push-to-talk** between KaiSIP phones (hold OK, others hear you; set up on the PBX, see docs/PBX-SETUP.md)
+- **Dashboard** home screen (clock, status, unread messages, missed calls, voicemail count) that turns into the dialler when you type;
+  **3x3 icon menu** (digits 1-9 open an entry)
+- **Voicemail**: waiting-message count (MWI) and a menu entry that calls the voicemail number (default `*97`)
 - Contacts (add, edit, delete), call log (last 20), names shown on incoming calls
 - First-run **Account** screen: server, extension, password
 - Background modes: **Off**, **Economic** (no permanent wake lock, alarm-based check), **Continuous** (wake lock)
@@ -85,8 +88,8 @@ The status bar turns green and says *Înregistrat* (registered). Type a number a
 | In call | left softkey | mute |
 | In call | right softkey / red key | hang up |
 
-Menu: Account, Contacts, Messages, Walkie-talkie (PTT), Call log, Settings (ring volume, PTT channel and members, background mode,
-default output, advanced), Reconnect, About.
+Menu (3x3 grid, arrows or digits 1-9): Contacts, Messages, Voicemail, Walkie-talkie (PTT), Call log, Settings (ring volume, PTT channel and
+members, background mode, default output, advanced), Account, Reconnect, About. On the empty home screen **Up** opens Messages and **Down** the call log.
 
 **Messages:** the menu lists conversations (unread count in brackets). **OK** opens one, **Write** composes (500 characters),
 **New** starts a chat with any number. Contacts and the call log also have *Send message*. A message written while you are
