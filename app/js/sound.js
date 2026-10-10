@@ -79,6 +79,18 @@ var Sound = (function () {
 
     /* Gecko 48 ignores the audio channel of a MediaStream element when it is set BEFORE playback starts,
        so the call always came out of the loudspeaker. Measured on both phones: setting it AFTER play() works. */
+    /* short 'roger' beep: PTT channel opened / transmission started */
+    beep: function () {
+      try {
+        var a = new Audio(wavUrl([{ hz1: 880, ms: 140 }]));
+        try { a.mozAudioChannelType = 'content'; } catch (e) {}
+        a.volume = 0.6;
+        a.onended = function () { try { URL.revokeObjectURL(a.src); } catch (e2) {} };
+        var p = a.play();
+        if (p && p.then) { p.then(null, function () {}); }
+      } catch (e3) { Log.w('sound', 'beep failed: ' + e3); }
+    },
+
     playRemote: function (stream) {
       if (remoteStream === stream && (Bridge.active() || remote)) { return; }   /* same stream announced again */
       this.stopRemote();

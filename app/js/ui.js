@@ -9,6 +9,8 @@ var UI = (function () {
   /* Basic settings; connection details live under "Setări avansate". */
   var BASIC = [
     { key: 'ringVolume', label: 'Volum sonerie (0-100)' },
+    { key: 'pttChannel', label: 'Canal PTT (număr)' },
+    { key: 'pttMembers', label: 'Membri PTT (ex: 206,207)' },
     { key: 'background', label: 'Mod fundal', toggle: ['off', 'low', 'on'], labels: BG_LABELS },
     { key: 'audioOut', label: 'Ieșire audio la apel', toggle: ['ear', 'speaker'], labels: OUT_LABELS, needsRoute: true },
     { link: 'adv', label: 'Setări avansate' }
@@ -22,6 +24,7 @@ var UI = (function () {
   var MENU = [
     { id: 'account', label: 'Cont' },
     { id: 'contacts', label: 'Contacte' },
+    { id: 'ptt', label: 'Walkie-talkie (PTT)' },
     { id: 'log', label: 'Jurnal apeluri' },
     { id: 'settings', label: 'Setări' },
     { id: 'reconnect', label: 'Reconectează' },
@@ -125,6 +128,7 @@ var UI = (function () {
     var id = MENU[menuSel].id;
     if (id === 'account') { openLogin(); }
     else if (id === 'contacts') { openContacts(); }
+    else if (id === 'ptt') { openPtt(); }
     else if (id === 'log') { screen = 'log'; logSel = 0; renderLog(); }
     else if (id === 'settings') { openSettings('basic'); }
     else if (id === 'reconnect') { Sip.restart(); toast('Se reconectează'); backToHome(); }
@@ -325,6 +329,34 @@ var UI = (function () {
     }
   }
 
+  /* ---------- push to talk ---------- */
+  function openPtt() { screen = 'ptt'; renderPtt(); }
+  function renderPtt() {
+    var el = $('screen');
+    clear(el);
+    heading(el, 'Walkie-talkie');
+    var ch = Ptt.channel(), c = Call.current();
+    var st = Ptt.status(c);
+    if (!ch) {
+      el.appendChild(div('hint', 'Setează „Canal PTT” și „Membri PTT” în Meniu → Setări'));
+      softkeys('Înapoi', '', 'Setări');
+      return;
+    }
+    el.appendChild(div('dialnum', 'Canal ' + ch));
+    var s = div('pttstate ptt-' + st.key, st.text);
+    el.appendChild(s);
+    if (c && c.ptt && c.dir === 'in') { el.appendChild(div('hint', 'de la ' + (c.name || c.number))); }
+    el.appendChild(div('hint', st.key === 'talking' ? 'Eliberează tasta ca să asculți' : 'Ține apăsat OK ca să vorbești'));
+    softkeys('Înapoi', st.key === 'talking' ? 'VORBEȘTI' : 'Ține OK', 'Setări');
+  }
+  function pttKeyDown(e) {
+    if (e.repeat) { return; }
+    var err = Ptt.press();
+    if (err) { toast(err); }
+    renderPtt();
+  }
+  function pttKeyUp() { Ptt.release(); renderPtt(); }
+
   /* ---------- call log ---------- */
   function renderLog() {
     var el = $('screen');
@@ -504,6 +536,13 @@ var UI = (function () {
     if (keyLogged < 40) { keyLogged++; Log.i('key', 'key=' + e.key + ' code=' + e.keyCode); }
     var k = norm(e), n;
 
+    if (screen === 'ptt') {
+      if (k === 'Enter') { e.preventDefault(); pttKeyDown(e); }
+      else if (k === 'SoftLeft' || k === 'Back') { e.preventDefault(); Ptt.release(); if (!Call.inCall()) { backToHome(); } }
+      else if (k === 'SoftRight') { e.preventDefault(); Ptt.release(); openSettings('basic'); }
+      return;
+    }
+
     if (screen === 'call') { onCallKey(e, k); return; }
 
     if (screen === 'edit') {
@@ -614,14 +653,21 @@ var UI = (function () {
   return {
     init: function () {
       document.addEventListener('keydown', onKey);
-      Call.on('new', function () { ctx = null; confirmBox = null; screen = 'call'; renderCall(); });
-      Call.on('change', function () { if (screen === 'call') { renderCall(); } });
+      document.addEventListener('keyup', function (e) { if (screen === 'ptt' && e.key === 'Enter') { e.preventDefault(); pttKeyUp(); } });
+      Call.on('new', function (c) {
+        ctx = null; confirmBox = null;
+        if (c && c.ptt) { screen = 'ptt'; renderPtt(); } else { screen = 'call'; renderCall(); }
+      });
+      Call.on('change', function () { if (screen === 'call') { renderCall(); } else if (screen === 'ptt') { renderPtt(); } });
       Call.on('tick', function (c) {
         var t = $('calltimer');
         if (screen === 'call' && t && c && c.state === 'incall') { t.textContent = Util.fmtDuration((Date.now() - c.answeredAt) / 1000); }
       });
-      Call.on('ended', function () { if (screen === 'call') { renderCall(); } });
-      Call.on('cleared', function () { if (screen === 'call') { backToHome(); refreshStatus(); } });
+      Call.on('ended', function () { if (screen === 'call') { renderCall(); } else if (screen === 'ptt') { renderPtt(); } });
+      Call.on('cleared', function () {
+        if (screen === 'call') { backToHome(); refreshStatus(); }
+        else if (screen === 'ptt') { renderPtt(); }
+      });
       Route.onHeadphones(function () { if (screen === 'call') { renderCall(); } });
       renderHome();
       refreshStatus();

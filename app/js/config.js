@@ -11,8 +11,15 @@ var Config = (function () {
     background: 'off',
     ringVolume: 100,
     audioOut: 'ear',         /* default call output: 'ear' (earpiece) | 'speaker' */
-    ecoMinutes: 15           /* Economic background mode: minutes between connection checks (alarm) */
+    ecoMinutes: 15,          /* Economic background mode: minutes between connection checks (alarm) */
+    pttChannel: '',          /* number dialled for push-to-talk (a Page() group on the PBX); empty = PTT off */
+    pttMembers: ''           /* extensions whose PTT calls this phone answers automatically, e.g. "206,207" */
   };
+
+  /* any run of non-digits becomes one comma: "206; 207 ,208" -> "206,207,208" */
+  function normalizeList(val) {
+    return String(val === undefined || val === null ? '' : val).replace(/[^0-9]+/g, ',').replace(/^,+|,+$/g, '');
+  }
   var cache = null;
 
   function load() {
@@ -55,6 +62,12 @@ var Config = (function () {
         return (val === 'ear' || val === 'speaker') ? '' : 'Ieșire invalidă';
       case 'ecoMinutes':
         return (/^\d{1,2}$/.test(val) && Number(val) >= 1 && Number(val) <= 60) ? '' : 'Minute 1-60';
+      case 'pttChannel':
+        return (val === '' || /^\d{1,10}$/.test(val)) ? '' : 'Doar cifre (max 10)';
+      case 'pttMembers': {
+        var list = normalizeList(val);
+        return (list === '' || (/^\d{1,10}(,\d{1,10})*$/.test(list) && list.split(',').length <= 20)) ? '' : 'Numere separate prin virgulă';
+      }
       default:
         return 'Câmp necunoscut';
     }
@@ -79,6 +92,7 @@ var Config = (function () {
     defaults: defaults,
     validate: validate,
     normalizeServer: normalizeServer,
+    normalizeList: normalizeList,
     get: function () {
       if (!cache) { cache = load(); }
       return cache;
@@ -87,7 +101,8 @@ var Config = (function () {
       var err = validate(key, val);
       if (err) { return err; }
       var cfg = this.get();
-      cfg[key] = (key === 'ringVolume' || key === 'ecoMinutes') ? Number(val) : String(val);
+      cfg[key] = (key === 'ringVolume' || key === 'ecoMinutes') ? Number(val)
+        : (key === 'pttMembers' ? normalizeList(val) : String(val));
       return save() ? '' : 'Nu s-a putut salva';
     },
     isComplete: function () {

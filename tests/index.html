@@ -22,6 +22,7 @@ var Log = { i: function () {}, w: function () {}, e: function () {} };
 var Sound = {}; var Sip = { state: function () { return { state: 'idle' }; }, ua: function () { return null; } };
 var Background = { bringToFront: function () {} };
 </script>
+<script src="../app/js/ptt.js"></script>
 <script src="../app/js/route.js"></script>
 <script src="../app/js/contacts.js"></script>
 <script src="../app/js/call.js"></script>
@@ -152,6 +153,36 @@ eq('audioOut valid/invalid', [Config.validate('audioOut', 'ear'), Config.validat
 eq('audioOut default', Config.defaults.audioOut, 'ear');
 eq('ecoMinutes bounds', [Config.validate('ecoMinutes', '1'), Config.validate('ecoMinutes', '60'), Config.validate('ecoMinutes', '0') !== '', Config.validate('ecoMinutes', '61') !== '', Config.validate('ecoMinutes', 'x') !== ''], ['', '', true, true, true]);
 eq('ecoMinutes default 15', Config.defaults.ecoMinutes, 15);
+
+/* ---- PTT settings ---- */
+eq('normalizeList separators', Config.normalizeList('206; 207 ,208'), '206,207,208');
+eq('normalizeList empty/garbage', [Config.normalizeList(''), Config.normalizeList(' , ;'), Config.normalizeList(null)], ['', '', '']);
+eq('pttChannel validate', [Config.validate('pttChannel', ''), Config.validate('pttChannel', '700'), Config.validate('pttChannel', 'abc') !== '', Config.validate('pttChannel', '12345678901') !== ''], ['', '', true, true]);
+eq('pttMembers validate', [Config.validate('pttMembers', ''), Config.validate('pttMembers', '206,207'), Config.validate('pttMembers', '206 207')], ['', '', '']);
+eq('pttMembers too many', Config.validate('pttMembers', new Array(22).join('1,') + '1') !== '', true);
+Config._reset(); try { localStorage.removeItem('kaisip.config'); } catch (e) {}
+eq('pttMembers stored normalized', (Config.set('pttMembers', '206 / 207'), Config.get().pttMembers), '206,207');
+eq('ptt defaults empty', [Config.defaults.pttChannel, Config.defaults.pttMembers], ['', '']);
+
+/* ---- Ptt logic ---- */
+Config._reset(); try { localStorage.removeItem('kaisip.config'); } catch (e) {}
+eq('isMember false with empty list', [Ptt.isMember('206'), Ptt.isMember('')], [false, false]);
+Config.set('pttMembers', '206,207');
+eq('isMember with list', [Ptt.isMember('206'), Ptt.isMember('207'), Ptt.isMember('999'), Ptt.isMember('')], [true, true, false, false]);
+eq('auto-answer needs header AND member', [Ptt.shouldAutoAnswer('1', '206'), Ptt.shouldAutoAnswer(null, '206'), Ptt.shouldAutoAnswer('1', '999'), Ptt.shouldAutoAnswer('', '206')], [true, false, false, false]);
+eq('status idle without call', Ptt.status(null).key, 'idle');
+eq('status ignores normal calls', Ptt.status({ ptt: false, dir: 'out', state: 'incall' }).key, 'idle');
+eq('status out opening', [Ptt.status({ ptt: true, dir: 'out', state: 'calling' }).key, Ptt.status({ ptt: true, dir: 'out', state: 'ringing' }).key], ['opening', 'opening']);
+eq('status out talking', Ptt.status({ ptt: true, dir: 'out', state: 'incall' }).text, 'VORBEȘTI');
+eq('status in listening', Ptt.status({ ptt: true, dir: 'in', state: 'incall' }).key, 'listening');
+eq('status ended -> idle', [Ptt.status({ ptt: true, dir: 'out', state: 'ended', message: 'Canal ocupat' }).text, Ptt.status({ ptt: true, dir: 'in', state: 'ended' }).key], ['Canal ocupat', 'idle']);
+Config.set('pttChannel', '');
+eq('press without channel', Ptt.press(), 'Setează canalul PTT în Setări');
+Config.set('pttChannel', '700');
+eq('press when not registered', Ptt.press(), 'Nu ești înregistrat');
+eq('press leaves not talking', Ptt.isTalking(), false);
+try { localStorage.removeItem('kaisip.config'); } catch (e) {}
+Config._reset();
 
 /* ---- Route (desktop browser: no mozTelephony) ---- */
 eq('route unsupported without mozTelephony', Route.supported(), false);

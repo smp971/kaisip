@@ -11,6 +11,7 @@ and a call log, and can stay connected in the background. Built with plain ES5 J
 
 - Voice calls in both directions, hang up, reject, mute, **in-call DTMF** (SIP INFO), **volume 20-300%** (up/down keys)
 - **Earpiece / speaker / headset** switching during a call (center key); needs the *certified* package
+- **Push-to-talk** between KaiSIP phones (hold OK, others hear you; set up on the PBX, see docs/PBX-SETUP.md)
 - Contacts (add, edit, delete), call log (last 20), names shown on incoming calls
 - First-run **Account** screen: server, extension, password
 - Background modes: **Off**, **Economic** (no permanent wake lock, alarm-based check), **Continuous** (wake lock)
@@ -77,7 +78,11 @@ The status bar turns green and says *Înregistrat* (registered). Type a number a
 | In call | left softkey | mute |
 | In call | right softkey / red key | hang up |
 
-Menu: Account, Contacts, Call log, Settings (ring volume, background mode, default output, advanced), Reconnect, About.
+Menu: Account, Contacts, Walkie-talkie (PTT), Call log, Settings (ring volume, PTT channel and members, background mode,
+default output, advanced), Reconnect, About.
+
+**Walkie-talkie:** open it from the menu and **hold OK** to talk; release to listen. A beep means the channel is open.
+One person talks at a time. It needs the PBX channel from docs/PBX-SETUP.md and works only between KaiSIP phones.
 
 ## Background mode
 

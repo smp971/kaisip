@@ -21,13 +21,29 @@ var Call = (function () {
     return { iceServers: ice };
   }
 
-  function mediaOptions() {
-    return {
+  function mediaOptions(extraHeaders) {
+    var o = {
       mediaConstraints: { audio: true, video: false },
       pcConfig: pcConfig(),
       rtcOfferConstraints: { offerToReceiveAudio: true, offerToReceiveVideo: false },
       rtcAnswerConstraints: { offerToReceiveAudio: true, offerToReceiveVideo: false }
     };
+    if (extraHeaders) { o.extraHeaders = extraHeaders; }
+    return o;
+  }
+
+  /* answer options for a PTT transmission: listen only, the microphone stays closed */
+  function receiveOnlyOptions() {
+    var o = {
+      pcConfig: pcConfig(),
+      rtcAnswerConstraints: { offerToReceiveAudio: true, offerToReceiveVideo: false }
+    };
+    try { o.mediaStream = new MediaStream(); }
+    catch (e) {   /* no MediaStream constructor: an empty-input Web Audio destination carries only silence */
+      var AC = window.AudioContext || window.webkitAudioContext;
+      o.mediaStream = new AC().createMediaStreamDestination().stream;
+    }
+    return o;
   }
 
   function sipUri(number) {
@@ -110,8 +126,8 @@ var Call = (function () {
     } else {
       message = 'Apel încheiat';
     }
-    Log.i('call', 'finished result=' + result + ' cause=' + cause + (code ? ' code=' + code : '') + ' dur=' + dur + 's');
-    CallLog.add({ dir: c.dir, number: c.number, name: c.name, result: result, duration: dur });
+    Log.i('call', 'finished' + (c.ptt ? ' (PTT)' : '') + ' result=' + result + ' cause=' + cause + (code ? ' code=' + code : '') + ' dur=' + dur + 's');
+    if (!c.ptt) { CallLog.add({ dir: c.dir, number: c.number, name: c.name, result: result, duration: dur }); }
     c.message = message;
     c.state = 'ended';
     emit('ended', c);
@@ -119,17 +135,17 @@ var Call = (function () {
     cleanupTimer = setTimeout(function () { if (current === c) { current = null; emit('cleared', null); } }, 1800);
   }
 
-  function attach(session, dir, number, name) {
+  function attach(session, dir, number, name, ptt) {
     if (cleanupTimer) { clearTimeout(cleanupTimer); cleanupTimer = null; }
     var known = Contacts.findByNumber(number);
     current = {
       dir: dir, number: number, name: (known ? known.name : (name || '')), session: session,
       state: dir === 'out' ? 'calling' : 'incoming', t0: Date.now(), answeredAt: 0, muted: false,
-      ended: false, rejected: false, message: '', dtmf: ''
+      ended: false, rejected: false, message: '', dtmf: '', ptt: !!ptt
     };
-    Log.i('call', 'new ' + dir + ' call ' + number);
+    Log.i('call', 'new ' + dir + (ptt ? ' PTT' : '') + ' call ' + number);
     lockCpu();
-    if (dir === 'out') { Route.begin(); }
+    if (dir === 'out') { if (!ptt) { Route.begin(); } }
     else { lockScreen(); Background.bringToFront(); }
 
     var iceReady = false, readyFn = null, iceTimer = null;
@@ -154,7 +170,7 @@ var Call = (function () {
       if (current && current.session === session && dir === 'out') {
         setState('ringing');
         var hasSdp = e.response && e.response.body;
-        if (hasSdp) { Sound.stopRingback(); } else { Sound.startRingback(); }
+        if (hasSdp) { Sound.stopRingback(); } else if (!current.ptt) { Sound.startRingback(); }
       }
     });
     session.on('accepted', function () {
@@ -163,6 +179,7 @@ var Call = (function () {
       current.answeredAt = Date.now();
       setState('incall');
       startTick();
+      if (current.ptt && current.dir === 'out') { Sound.beep(); }      /* the channel is open: speak */
     });
     session.on('confirmed', function () {
       if (!current || current.session !== session) { return; }
@@ -196,12 +213,24 @@ var Call = (function () {
         var ru = s.remote_identity;
         var num = ru && ru.uri ? decodeURIComponent(ru.uri.user || '') : '?';
         var nm = ru && ru.display_name ? ru.display_name : '';
+        var pttHeader = null;
+        try { pttHeader = data.request && data.request.getHeader ? data.request.getHeader(Ptt.HEADER) : null; } catch (eh) {}
+        try { Log.i('call', 'incoming INVITE from ' + num + ' headers: ' + Object.keys((data.request && data.request.headers) || {}).join(',')); } catch (ek) {}
+        if (Ptt.shouldAutoAnswer(pttHeader, num)) {
+          attach(s, 'in', num, nm, true);
+          Route.setSpeaker(true);                       /* a walkie-talkie is heard on the speaker */
+          Sound.beep();
+          try { s.answer(receiveOnlyOptions()); }
+          catch (ea) { Log.e('call', 'PTT auto-answer failed: ' + ea); }
+          return;
+        }
+        if (pttHeader) { Log.w('call', 'PTT header from ' + num + ' ignored: not in the PTT members list'); }
         attach(s, 'in', num, nm);
         Sound.startRingtone(Config.get().ringVolume);
       } else {
         var out = pendingOut || { number: '?' };
         pendingOut = null;
-        attach(s, 'out', out.number, '');
+        attach(s, 'out', out.number, '', out.ptt);
       }
     });
   }
@@ -212,7 +241,9 @@ var Call = (function () {
     inCall: function () { return !!(current && !current.ended); },
     on: function (ev, fn) { (handlers[ev] = handlers[ev] || []).push(fn); },
 
-    dial: function (rawNumber) {
+    /* opts.ptt: a push-to-talk transmission (adds the X-KaiSIP-PTT header, no ringback, not in the call log) */
+    dial: function (rawNumber, opts) {
+      var ptt = !!(opts && opts.ptt);
       var number = Util.filterNumber(rawNumber);
       if (!number) { return 'Număr invalid'; }
       if (number === Config.get().extension) { return 'Acesta e numărul tău'; }
@@ -220,9 +251,9 @@ var Call = (function () {
       if (Sip.state().state !== 'registered') { return 'Nu ești înregistrat'; }
       var ua = Sip.ua();
       if (!ua) { return 'Conexiune indisponibilă'; }
-      pendingOut = { number: number };
+      pendingOut = { number: number, ptt: ptt };
       try {
-        ua.call(sipUri(number), mediaOptions());
+        ua.call(sipUri(number), mediaOptions(ptt ? [Ptt.HEADER + ': 1'] : null));
       } catch (e) {
         pendingOut = null;
         Log.e('call', 'dial failed: ' + e);

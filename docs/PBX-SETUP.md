@@ -107,7 +107,36 @@ Nokia 8110 4G with GerdaOS and on a stock Nokia 6300 4G, KaiOS 2.5.4). Check by 
 (for example one chained to USERTrust or DigiCert) or add the root to the phone's certificate database
 (`cert9.db`) with root access, see `tools/add_isrg_root.py`.
 
-## 4. Quick check from a computer
+## 4. Push-to-talk (optional, KaiSIP phones only)
+
+KaiSIP's **Walkie-talkie** screen places a short call to a *channel number* while you hold the OK key. On the PBX that
+number pages a group: every member answers automatically and only listens.
+
+`extensions.conf`, in the context your extensions use (here `internal`):
+
+```
+[internal]
+exten => 700,1,NoOp(KaiSIP PTT channel)
+ same => n,Page(PJSIP/206&PJSIP/207,ib(ptt-mark^s^1),20)
+ same => n,Hangup()
+
+[ptt-mark]
+exten => s,1,Set(PJSIP_HEADER(add,X-KaiSIP-PTT)=1)
+ same => n,Return()
+```
+
+Then `asterisk -rx "dialplan reload"`. Notes:
+
+- `Page()` needs `app_page.so` and `app_confbridge.so` (`asterisk -rx "module show like page"`).
+- Without the `d` option the page is one-way: the caller talks, the members listen.
+- `b(ptt-mark^s^1)` adds the header `X-KaiSIP-PTT` to every outgoing leg. A phone answers by itself **only** if the call carries
+  that header **and** the caller's extension is in the phone's **PTT members** setting; any other call rings normally. The
+  auto-answer is receive-only: the phone's microphone is never opened.
+- In the app: **Settings -> PTT channel** = `700`, **PTT members** = the extensions allowed to talk to this phone
+  (for example `206,207`). Every phone of the group needs both settings.
+- The sender is also in the page list in the example above; that leg is rejected as busy, which is harmless.
+
+## 5. Quick check from a computer
 
 ```
 curl -i --http1.1 -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Version: 13" \
