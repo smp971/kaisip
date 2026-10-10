@@ -16,7 +16,8 @@ var UI = (function () {
   var ADV = [
     { key: 'wssUrl', label: 'Server WSS', conn: true },
     { key: 'domain', label: 'Domeniu SIP', conn: true },
-    { key: 'stun', label: 'STUN', conn: true }
+    { key: 'stun', label: 'STUN', conn: true },
+    { key: 'ecoMinutes', label: 'Mod Economic: verificare la (min)', eco: true }
   ];
   var MENU = [
     { id: 'account', label: 'Cont' },
@@ -204,6 +205,7 @@ var UI = (function () {
   }
   function afterChange(f) {
     if (f.key === 'background') { Background.apply(); settingsChanged = true; }
+    else if (f.eco) { Background.apply(); }
     else if (f.conn) { settingsChanged = true; }
   }
   function renderEdit() {

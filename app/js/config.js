@@ -10,7 +10,8 @@ var Config = (function () {
     stun: 'stun:stun.l.google.com:19302',
     background: 'off',
     ringVolume: 100,
-    audioOut: 'ear'          /* default call output: 'ear' (earpiece) | 'speaker' */
+    audioOut: 'ear',         /* default call output: 'ear' (earpiece) | 'speaker' */
+    ecoMinutes: 15           /* Economic background mode: minutes between connection checks (alarm) */
   };
   var cache = null;
 
@@ -52,6 +53,8 @@ var Config = (function () {
         return (/^\d{1,3}$/.test(val) && Number(val) <= 100) ? '' : 'Volum 0-100';
       case 'audioOut':
         return (val === 'ear' || val === 'speaker') ? '' : 'Ieșire invalidă';
+      case 'ecoMinutes':
+        return (/^\d{1,2}$/.test(val) && Number(val) >= 1 && Number(val) <= 60) ? '' : 'Minute 1-60';
       default:
         return 'Câmp necunoscut';
     }
@@ -84,7 +87,7 @@ var Config = (function () {
       var err = validate(key, val);
       if (err) { return err; }
       var cfg = this.get();
-      cfg[key] = (key === 'ringVolume') ? Number(val) : String(val);
+      cfg[key] = (key === 'ringVolume' || key === 'ecoMinutes') ? Number(val) : String(val);
       return save() ? '' : 'Nu s-a putut salva';
     },
     isComplete: function () {

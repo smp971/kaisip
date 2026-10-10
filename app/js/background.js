@@ -7,7 +7,7 @@
    ES5. */
 var Background = (function () {
   'use strict';
-  var ALARM_MINUTES = 15;
+  function alarmMinutes() { return Config.get().ecoMinutes || 15; }
   var lock = null, alarmId = null, alarmHold = null, holdTimer = null;
 
   function releaseHold() {
@@ -27,7 +27,7 @@ var Background = (function () {
     try {
       if (!navigator.mozAlarms) { Log.w('bg', 'no mozAlarms'); return; }
       cancelAlarm();
-      var when = new Date(Date.now() + ALARM_MINUTES * 60000);
+      var when = new Date(Date.now() + alarmMinutes() * 60000);
       var r = navigator.mozAlarms.add(when, 'ignoreTimezone', { kind: 'kaisip-ensure' });
       r.onsuccess = function () { alarmId = r.result; Log.i('bg', 'alarm #' + alarmId + ' set for ' + when.toISOString()); };
       r.onerror = function () { Log.w('bg', 'alarm add failed: ' + (r.error && r.error.name)); };
@@ -36,7 +36,7 @@ var Background = (function () {
 
   /* runs when the alarm fires (the system may start the app in the background for it) */
   function onAlarm() {
-    Log.i('bg', 'alarm fired, mode=' + Config.get().background);
+    Log.i('bg', 'alarm fired, mode=' + Config.get().background + ' sip=' + Sip.state().state + ' hidden=' + document.hidden);
     if (Config.get().background !== 'low') { return; }
     try {   /* keep the CPU up only while we verify the connection */
       if (navigator.requestWakeLock && !alarmHold) { alarmHold = navigator.requestWakeLock('cpu'); }
@@ -80,7 +80,6 @@ var Background = (function () {
   return {
     apply: apply,
     active: function () { return !!lock; },
-    bringToFront: bringToFront,
-    ALARM_MINUTES: ALARM_MINUTES
+    bringToFront: bringToFront
   };
 }());

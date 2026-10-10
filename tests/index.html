@@ -150,6 +150,8 @@ eq('background low valid', [Config.validate('background', 'low'), Config.validat
 eq('background invalid', Config.validate('background', 'turbo') !== '', true);
 eq('audioOut valid/invalid', [Config.validate('audioOut', 'ear'), Config.validate('audioOut', 'speaker'), Config.validate('audioOut', 'x') !== ''], ['', '', true]);
 eq('audioOut default', Config.defaults.audioOut, 'ear');
+eq('ecoMinutes bounds', [Config.validate('ecoMinutes', '1'), Config.validate('ecoMinutes', '60'), Config.validate('ecoMinutes', '0') !== '', Config.validate('ecoMinutes', '61') !== '', Config.validate('ecoMinutes', 'x') !== ''], ['', '', true, true, true]);
+eq('ecoMinutes default 15', Config.defaults.ecoMinutes, 15);
 
 /* ---- Route (desktop browser: no mozTelephony) ---- */
 eq('route unsupported without mozTelephony', Route.supported(), false);
