@@ -5,9 +5,9 @@
   python rdp_install.py <serial> uninstall <appId>
   python rdp_install.py <serial> list
 """
-import socket, json, subprocess, sys, base64, zipfile, io, time
+import os, socket, json, subprocess, sys, base64, zipfile, io, time
 
-ADB = r'D:\ROMS\platform-tools-dl\platform-tools\adb.exe'
+ADB = os.environ.get('ADB', 'adb')      # set ADB=<path to adb> when it is not on PATH
 PORT = 6000
 
 

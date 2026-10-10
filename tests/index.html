@@ -83,11 +83,26 @@ eq('unknown key rejected', Config.validate('nope', 'x') !== '', true);
 try { localStorage.removeItem('kaisip.config'); } catch (e) {}
 Config._reset();
 eq('defaults: not complete', Config.isComplete(), false);
-eq('defaults wssUrl', Config.get().wssUrl, 'wss://pbx.example.com/ws');
+eq('defaults are generic (no server)', [Config.get().wssUrl, Config.get().domain], ['', '']);
+
+/* ---- Config.normalizeServer ---- */
+eq('server host only', Config.normalizeServer('pbx.example.com'), { wssUrl: 'wss://pbx.example.com/ws', domain: 'pbx.example.com' });
+eq('server with spaces', Config.normalizeServer('  pbx.example.com  ').domain, 'pbx.example.com');
+eq('server with port', Config.normalizeServer('pbx.example.com:8089'), { wssUrl: 'wss://pbx.example.com:8089/ws', domain: 'pbx.example.com' });
+eq('server with own path', Config.normalizeServer('pbx.example.com/sip'), { wssUrl: 'wss://pbx.example.com/sip', domain: 'pbx.example.com' });
+eq('server full wss url', Config.normalizeServer('wss://pbx.example.com/ws'), { wssUrl: 'wss://pbx.example.com/ws', domain: 'pbx.example.com' });
+eq('server uppercase scheme', Config.normalizeServer('WSS://Pbx.Example.com').domain, 'Pbx.Example.com');
+eq('server ws:// refused', Config.normalizeServer('ws://pbx.example.com').error, 'Folosește wss:// (securizat)');
+eq('server https:// refused', Config.normalizeServer('https://pbx.example.com').error, 'Folosește wss:// (securizat)');
+eq('server empty refused', Config.normalizeServer('   ').error, 'Completează serverul');
+eq('server garbage refused', Config.normalizeServer('pbx example').error !== undefined, true);
+eq('server injection refused', Config.normalizeServer('pbx.example.com/ws" onload="x').error !== undefined, true);
 eq('set bad returns message', Config.set('extension', 'x y') !== '', true);
 eq('set extension', Config.set('extension', '206'), '');
 eq('still incomplete without password', Config.isComplete(), false);
 eq('set password', Config.set('password', 'secret-pass'), '');
+eq('still incomplete without a server', Config.isComplete(), false);
+eq('set server + domain', [Config.set('wssUrl', 'wss://pbx.example.com/ws'), Config.set('domain', 'pbx.example.com')], ['', '']);
 eq('complete now', Config.isComplete(), true);
 eq('ringVolume stored as number', (Config.set('ringVolume', '40'), Config.get().ringVolume), 40);
 Config._reset();
@@ -115,8 +130,11 @@ eq('cause unknown/empty', [Errors.cause('Whatever'), Errors.cause(undefined)], [
 
 /* ---- Call._sipUri (domain from Config) ---- */
 Config._reset(); try { localStorage.removeItem('kaisip.config'); } catch (e) {}
+Config.set('domain', 'pbx.example.com');
 eq('sipUri plain', Call._sipUri('207'), 'sip:207@pbx.example.com');
 eq('sipUri star/hash/plus escaped', Call._sipUri('*72#+4'), 'sip:*72%23%2B4@pbx.example.com');
+try { localStorage.removeItem('kaisip.config'); } catch (e) {}
+Config._reset();
 
 /* ---- Call.dial pre-checks ---- */
 Config.set('extension', '206');

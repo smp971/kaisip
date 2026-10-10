@@ -58,13 +58,14 @@ var UI = (function () {
     if (toastTimer) { clearTimeout(toastTimer); }
     toastTimer = setTimeout(function () { t.style.display = 'none'; }, ms || 2500);
   }
-  function inputRow(label, id, type, value) {
+  function inputRow(label, id, type, value, placeholder) {
     var box = div('edit');
     box.appendChild(div('k', label));
     var input = document.createElement('input');
     input.id = id;
     input.type = type;
     input.value = value || '';
+    if (placeholder) { input.setAttribute('placeholder', placeholder); }
     input.setAttribute('autocomplete', 'off');
     input.setAttribute('autocapitalize', 'off');
     box.appendChild(input);
@@ -101,7 +102,7 @@ var UI = (function () {
     var s = Sip.state(), hint = '';
     var known = dial ? Contacts.findByNumber(dial) : null;
     if (known) { hint = known.name; }
-    else if (s.state === 'unconfigured') { hint = 'Deschide Meniu → Cont'; }
+    else if (s.state === 'unconfigured') { hint = 'Deschide Meniu → Cont: server, extensie, parolă'; }
     else if (s.state === 'registered') { hint = dial ? 'Apasă Apel' : 'Scrie un număr'; }
     else { hint = s.detail || Errors.text(s.state); }
     el.appendChild(div('hint', hint));
@@ -422,36 +423,43 @@ var UI = (function () {
   }
 
   /* ---------- account (login) ---------- */
+  var LOGIN_IDS = ['loginsrv', 'loginext', 'loginpass'];
   function syncLogin() {
-    var a = $('loginext'), b = $('loginpass');
-    if (a) { login.ext = a.value; }
-    if (b) { login.pass = b.value; }
+    var a = $('loginsrv'), b = $('loginext'), c = $('loginpass');
+    if (a) { login.srv = a.value; }
+    if (b) { login.ext = b.value; }
+    if (c) { login.pass = c.value; }
   }
   function renderLogin() {
     var el = $('screen');
     clear(el);
     heading(el, 'Cont SIP');
+    el.appendChild(inputRow('Server', 'loginsrv', 'text', login.srv, 'pbx.exemplu.ro'));
     el.appendChild(inputRow('Extensie', 'loginext', 'text', login.ext));
     el.appendChild(inputRow('Parolă', 'loginpass', login.reveal ? 'text' : 'password', login.pass));
     if (login.error) { el.appendChild(div('err', login.error)); }
-    el.appendChild(div('hint', 'Server: ' + Config.get().domain));
-    focusEnd(login.focus === 0 ? 'loginext' : 'loginpass');
-    softkeys(login.reveal ? 'Ascunde' : 'Arată', login.focus === 0 ? 'Următorul' : 'Conectare', Config.isComplete() ? 'Anulează' : 'Setări');
+    focusEnd(LOGIN_IDS[login.focus]);
+    softkeys(login.reveal ? 'Ascunde' : 'Arată', login.focus < 2 ? 'Următorul' : 'Conectare', Config.isComplete() ? 'Anulează' : 'Setări');
   }
   function openLogin(error) {
     var c = Config.get();
-    login = { focus: 0, reveal: false, error: error || '', ext: c.extension, pass: c.password };
+    login = { focus: c.wssUrl ? 1 : 0, reveal: false, error: error || '', srv: c.wssUrl, ext: c.extension, pass: c.password };
     screen = 'login';
     renderLogin();
   }
   function submitLogin() {
     syncLogin();
     var ext = login.ext.replace(/^\s+|\s+$/g, ''), pass = login.pass;
+    var srv = Config.normalizeServer(login.srv);
+    if (srv.error) { login.error = srv.error; login.focus = 0; renderLogin(); return; }
     var e1 = Config.validate('extension', ext), e2 = Config.validate('password', pass);
-    if (e1 || e2) { login.error = e1 || 'Completează parola'; login.focus = e1 ? 0 : 1; renderLogin(); return; }
+    if (e1 || e2) { login.error = e1 || 'Completează parola'; login.focus = e1 ? 1 : 2; renderLogin(); return; }
+    var cfg = Config.get(), oldHost = (cfg.wssUrl.match(/^wss:\/\/([^\/:]+)/) || [])[1] || '';
+    Config.set('wssUrl', srv.wssUrl);
+    if (!cfg.domain || cfg.domain === oldHost) { Config.set('domain', srv.domain); }   /* keep a domain the user set by hand */
     Config.set('extension', ext);
     Config.set('password', pass);
-    Log.i('cfg', 'account saved ext=' + ext);
+    Log.i('cfg', 'account saved ext=' + ext + ' server=' + srv.wssUrl);
     login = null;
     authPrompted = false;
     toast('Se conectează');
@@ -503,9 +511,9 @@ var UI = (function () {
     }
 
     if (screen === 'login') {
-      if (k === 'Up') { e.preventDefault(); syncLogin(); login.focus = 0; renderLogin(); }
-      else if (k === 'Down') { e.preventDefault(); syncLogin(); login.focus = 1; renderLogin(); }
-      else if (k === 'Enter') { e.preventDefault(); if (login.focus === 0) { syncLogin(); login.focus = 1; renderLogin(); } else { submitLogin(); } }
+      if (k === 'Up') { e.preventDefault(); syncLogin(); login.focus = Math.max(0, login.focus - 1); renderLogin(); }
+      else if (k === 'Down') { e.preventDefault(); syncLogin(); login.focus = Math.min(2, login.focus + 1); renderLogin(); }
+      else if (k === 'Enter') { e.preventDefault(); if (login.focus < 2) { syncLogin(); login.focus++; renderLogin(); } else { submitLogin(); } }
       else if (k === 'SoftLeft') { e.preventDefault(); syncLogin(); login.reveal = !login.reveal; renderLogin(); }
       else if (k === 'SoftRight') {
         e.preventDefault(); syncLogin();

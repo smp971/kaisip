@@ -5,7 +5,7 @@ Date: 2026-10-09 · Status: design approved by the user, section by section, in 
 ## 1. Goal
 
 A voice SIP client that runs as a privileged KaiOS 2.5 app (Gecko 48) on a Nokia 8110 4G
-with GerdaOS, installed through GerdaPkg. It registers to the user's own Asterisk 22 PBX
+with GerdaOS, installed through GerdaPkg. It registers to an Asterisk 22 PBX
 (`pbx.example.com`, PJSIP, extension 206 "KaiOS 8110") over **SIP-over-WebSocket + WebRTC audio**,
 makes and receives calls, and can optionally stay connected in the background.
 

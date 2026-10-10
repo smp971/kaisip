@@ -3,8 +3,8 @@ var Config = (function () {
   'use strict';
   var KEY = 'kaisip.config';
   var defaults = {
-    wssUrl: 'wss://pbx.example.com/ws',
-    domain: 'pbx.example.com',
+    wssUrl: '',               /* filled in on the Account screen, e.g. wss://pbx.example.com/ws */
+    domain: '',               /* SIP domain; defaults to the server host */
     extension: '',
     password: '',
     stun: 'stun:stun.l.google.com:19302',
@@ -57,9 +57,25 @@ var Config = (function () {
     }
   }
 
+  /* "pbx.example.com", "pbx.example.com:8089/sip" or a full wss:// URL -> { wssUrl, domain } or { error } */
+  function normalizeServer(input) {
+    var s = String(input === undefined || input === null ? '' : input).replace(/^\s+|\s+$/g, '');
+    if (!s) { return { error: 'Completează serverul' }; }
+    if (/^wss:\/\//i.test(s)) { s = s.replace(/^wss:\/\//i, ''); }
+    else if (/^[a-z][a-z0-9+.\-]*:\/\//i.test(s)) { return { error: 'Folosește wss:// (securizat)' }; }
+    var slash = s.indexOf('/');
+    var hostPort = slash < 0 ? s : s.slice(0, slash);
+    var path = slash < 0 ? '/ws' : s.slice(slash);
+    var url = 'wss://' + hostPort + path;
+    var err = validate('wssUrl', url);
+    if (err) { return { error: err }; }
+    return { wssUrl: url, domain: hostPort.replace(/:\d+$/, '') };
+  }
+
   return {
     defaults: defaults,
     validate: validate,
+    normalizeServer: normalizeServer,
     get: function () {
       if (!cache) { cache = load(); }
       return cache;

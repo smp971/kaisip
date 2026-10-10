@@ -1,5 +1,5 @@
 {
-  "version": "0.3.3",
+  "version": "0.4.0",
   "name": "KaiSIP",
   "description": "SIP client (WebSocket + WebRTC) for KaiOS 2.5",
   "launch_path": "/index.html",
