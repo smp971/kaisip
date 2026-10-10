@@ -25,6 +25,7 @@ var Background = { bringToFront: function () {} };
 <script src="../app/js/ptt.js"></script>
 <script src="../app/js/route.js"></script>
 <script src="../app/js/contacts.js"></script>
+<script src="../app/js/messages.js"></script>
 <script src="../app/js/call.js"></script>
 <script>
 var pass = 0, fail = 0, results = document.getElementById('results');
@@ -183,6 +184,49 @@ eq('press when not registered', Ptt.press(), 'Nu ești înregistrat');
 eq('press leaves not talking', Ptt.isTalking(), false);
 try { localStorage.removeItem('kaisip.config'); } catch (e) {}
 Config._reset();
+
+/* ---- chat settings ---- */
+eq('msgSync validate', [Config.validate('msgSync', 'on'), Config.validate('msgSync', 'off'), Config.validate('msgSync', 'x') !== ''], ['', '', true]);
+eq('msgBox validate', [Config.validate('msgBox', '*98'), Config.validate('msgBox', '699'), Config.validate('msgBox', 'abc') !== '', Config.validate('msgBox', '') !== ''], ['', '', true, true]);
+eq('chat defaults', [Config.defaults.msgSync, Config.defaults.msgBox], ['on', '*98']);
+
+/* ---- Messages ---- */
+Messages.clear();
+eq('cleanText controls/newline/null', [Messages.cleanText('a\u0007b\r\nc\td'), Messages.cleanText(null), Messages.cleanText(undefined)], ['ab\nc\td', '', '']);
+eq('cleanText caps length', Messages.cleanText(new Array(700).join('x')).length, 500);
+eq('empty store', [Messages.threads(), Messages.get('207'), Messages.unreadTotal()], [[], [], 0]);
+eq('empty/blank refused', [Messages.addOutgoing('207', '   '), Messages.addIncoming('207', ''), Messages.addIncoming('207', '\n \t')], [null, null, null]);
+var o1 = Messages.addOutgoing('207', 'salut', 'queued');
+eq('outgoing stored', [o1.dir, o1.text, o1.status, Messages.get('207').length], ['out', 'salut', 'queued', 1]);
+var i1 = Messages.addIncoming('207', 'hei', Date.now() + 10);
+eq('incoming stored and unread', [i1.dir, Messages.unread('207'), Messages.unreadTotal()], ['in', 1, 1]);
+eq('incoming duplicate within 3 s ignored', Messages.addIncoming('207', 'hei', Date.now() + 11), null);
+eq('same text later is kept', !!Messages.addIncoming('207', 'hei', Date.now() + 20000), true);
+eq('unread counts', Messages.unread('207'), 2);
+Messages.markRead('207');
+eq('markRead', [Messages.unread('207'), Messages.unreadTotal()], [0, 0]);
+eq('queued list', Messages.queued().map(function (q) { return q.item.id === o1.id && q.number === '207'; }), [true]);
+eq('setStatus sent', [Messages.setStatus('207', o1.id, 'sent'), Messages.get('207')[0].status, Messages.queued().length], [true, 'sent', 0]);
+var o2 = Messages.addOutgoing('207', 'nu a plecat', 'sending');
+Messages.setStatus('207', o2.id, 'failed');
+eq('failed list', Messages.failed('207').map(function (x) { return x.text; }), ['nu a plecat']);
+eq('setStatus unknown id/thread', [Messages.setStatus('207', 'nope', 'sent'), Messages.setStatus('999', 'x', 'sent')], [false, false]);
+Messages.addIncoming('204', 'de la linphone', Date.now() + 99999);
+eq('threads newest first', Messages.threads().map(function (t) { return t.number; }), ['204', '207']);
+eq('label and preview', [Messages.label({ number: '204', unread: 2 }, 'Ana'), Messages.label({ number: '204', unread: 0 }), Messages.preview({ last: { dir: 'out', text: 'a  b' } })], ['Ana (2)', '204', 'Tu: a b']);
+eq('preview truncates', Messages.preview({ last: { dir: 'in', text: new Array(60).join('z') } }).length, 34);
+eq('removeThread', [Messages.removeThread('204'), Messages.threads().length], [true, 1]);
+Messages.clear();
+for (var q = 0; q < 105; q++) { Messages.addOutgoing('300', 'm' + q, 'sent'); }
+eq('thread capped at 100, newest kept', [Messages.get('300').length, Messages.get('300')[99].text, Messages.get('300')[0].text], [100, 'm104', 'm5']);
+Messages.clear();
+for (var r = 0; r < 35; r++) { Messages.addOutgoing(String(500 + r), 'x', 'sent'); }
+eq('threads capped at 30', Messages.threads().length, 30);
+try { localStorage.setItem('kaisip.messages', 'garbage'); } catch (e) {}
+eq('garbage storage -> empty', Messages.threads(), []);
+try { localStorage.setItem('kaisip.messages', '{"threads":[1,2]}'); } catch (e) {}
+eq('array threads -> empty', Messages.threads(), []);
+Messages.clear();
 
 /* ---- Route (desktop browser: no mozTelephony) ---- */
 eq('route unsupported without mozTelephony', Route.supported(), false);

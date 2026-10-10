@@ -13,7 +13,9 @@ var Config = (function () {
     audioOut: 'ear',         /* default call output: 'ear' (earpiece) | 'speaker' */
     ecoMinutes: 15,          /* Economic background mode: minutes between connection checks (alarm) */
     pttChannel: '',          /* number dialled for push-to-talk (a Page() group on the PBX); empty = PTT off */
-    pttMembers: ''           /* extensions whose PTT calls this phone answers automatically, e.g. "206,207" */
+    pttMembers: '',          /* extensions whose PTT calls this phone answers automatically, e.g. "206,207" */
+    msgSync: 'on',           /* ask the PBX for messages stored while this phone was offline */
+    msgBox: '*98'            /* the PBX service number that answers "SYNC" with the stored messages */
   };
 
   /* any run of non-digits becomes one comma: "206; 207 ,208" -> "206,207,208" */
@@ -62,6 +64,10 @@ var Config = (function () {
         return (val === 'ear' || val === 'speaker') ? '' : 'Ieșire invalidă';
       case 'ecoMinutes':
         return (/^\d{1,2}$/.test(val) && Number(val) >= 1 && Number(val) <= 60) ? '' : 'Minute 1-60';
+      case 'msgSync':
+        return (val === 'on' || val === 'off') ? '' : 'Valoare invalidă';
+      case 'msgBox':
+        return /^[0-9*#+]{1,12}$/.test(val) ? '' : 'Doar cifre, * # +';
       case 'pttChannel':
         return (val === '' || /^\d{1,10}$/.test(val)) ? '' : 'Doar cifre (max 10)';
       case 'pttMembers': {

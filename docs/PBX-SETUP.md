@@ -136,7 +136,60 @@ Then `asterisk -rx "dialplan reload"`. Notes:
   (for example `206,207`). Every phone of the group needs both settings.
 - The sender is also in the page list in the example above; that leg is rejected as busy, which is harmless.
 
-## 5. Quick check from a computer
+## 5. Chat and offline messages (optional)
+
+KaiSIP chat is plain **SIP MESSAGE** (`text/plain`), so it also works with Linphone and other SIP clients. Asterisk routes
+messages through a dialplan context. Messages for a phone that is **not registered** are kept on the PBX and delivered the
+next time that phone registers: the phone sends the text `SYNC` to a service number (`*98`) and the PBX answers with
+everything it kept. Nothing runs besides the dialplan.
+
+1. Tell the endpoints which context handles messages. In `pjsip.conf`, in the endpoint template (or in each endpoint):
+
+   ```ini
+   [endpoint-template](!)
+   type=endpoint
+   message_context=messages
+   ```
+
+2. `extensions.conf`:
+
+   ```
+   [messages]
+   ; a message for an extension: deliver it, or keep it if that phone is offline
+   exten => _X.,1,NoOp(KaiSIP message ${MESSAGE(from)} -> ${EXTEN})
+    same => n,MessageSend(pjsip:${EXTEN},${MESSAGE(from)})
+    same => n,GotoIf($["${MESSAGE_SEND_STATUS}" = "SUCCESS"]?done)
+    same => n,Set(DB(kaisipmsg/${EXTEN}/${EPOCH}-${RAND(1000,9999)})=${BASE64_ENCODE(${MESSAGE(from)})}|${BASE64_ENCODE(${MESSAGE(body)})})
+    same => n(done),Hangup()
+
+   ; "SYNC" from a phone that just registered: send it what was kept, delete it, drop anything older than 7 days
+   exten => *98,1,NoOp(KaiSIP message sync from ${MESSAGE(from)})
+    same => n,Set(ME=${CUT(CUT(MESSAGE(from),@,1),:,2)})
+    same => n,Set(KEYS=${DB_KEYS(kaisipmsg/${ME})})
+    same => n,While($[${LEN(${KEYS})} > 0])
+    same => n,Set(K=${SHIFT(KEYS,\,)})
+    same => n,Set(V=${DB(kaisipmsg/${ME}/${K})})
+    same => n,GotoIf($[${EPOCH} - ${CUT(K,-,1)} > 604800]?drop)
+    same => n,Set(MESSAGE(body)=${BASE64_DECODE(${CUT(V,|,2)})})
+    same => n,MessageSend(pjsip:${ME},${BASE64_DECODE(${CUT(V,|,1)})})
+    same => n(drop),NoOp(${DB_DELETE(kaisipmsg/${ME}/${K})})
+    same => n,EndWhile
+    same => n,Hangup()
+   ```
+
+3. `asterisk -rx "dialplan reload"` and `asterisk -rx "module reload res_pjsip.so"`.
+
+Notes:
+
+- Stored messages live in Asterisk's internal database (`asterisk -rx "database show kaisipmsg"`), in clear text on the PBX.
+- A sender is told "sent" when the PBX accepted the message, whether it was delivered or stored.
+- Check the format of `MESSAGE(from)` in the Asterisk log (`NoOp` lines above) if sync does not deliver: the examples assume
+  `pjsip:206`, `sip:206@host` or `"Name" <sip:206@host>`.
+- The service number is a phone setting (**Advanced settings -> message service number**, default `*98`); phones can switch
+  sync off in **Settings**.
+- Not hardened: anyone registered on the PBX can message anyone. Cap the stored messages per extension if that matters.
+
+## 6. Quick check from a computer
 
 ```
 curl -i --http1.1 -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Version: 13" \

@@ -11,6 +11,7 @@ var UI = (function () {
     { key: 'ringVolume', label: 'Volum sonerie (0-100)' },
     { key: 'pttChannel', label: 'Canal PTT (număr)' },
     { key: 'pttMembers', label: 'Membri PTT (ex: 206,207)' },
+    { key: 'msgSync', label: 'Mesaje primite offline (sincronizare)', toggle: ['on', 'off'], labels: { on: 'Pornit', off: 'Oprit' } },
     { key: 'background', label: 'Mod fundal', toggle: ['off', 'low', 'on'], labels: BG_LABELS },
     { key: 'audioOut', label: 'Ieșire audio la apel', toggle: ['ear', 'speaker'], labels: OUT_LABELS, needsRoute: true },
     { link: 'adv', label: 'Setări avansate' }
@@ -19,11 +20,13 @@ var UI = (function () {
     { key: 'wssUrl', label: 'Server WSS', conn: true },
     { key: 'domain', label: 'Domeniu SIP', conn: true },
     { key: 'stun', label: 'STUN', conn: true },
-    { key: 'ecoMinutes', label: 'Mod Economic: verificare la (min)', eco: true }
+    { key: 'ecoMinutes', label: 'Mod Economic: verificare la (min)', eco: true },
+    { key: 'msgBox', label: 'Număr serviciu mesaje (PBX)' }
   ];
   var MENU = [
     { id: 'account', label: 'Cont' },
     { id: 'contacts', label: 'Contacte' },
+    { id: 'chat', label: 'Mesaje' },
     { id: 'ptt', label: 'Walkie-talkie (PTT)' },
     { id: 'log', label: 'Jurnal apeluri' },
     { id: 'settings', label: 'Setări' },
@@ -88,7 +91,8 @@ var UI = (function () {
     $('dot').className = s.state;
     var label = Errors.text(s.state === 'idle' ? 'connecting' : s.state);
     $('regtext').textContent = label + (s.detail && s.state !== 'registered' ? ' · ' + s.detail : '');
-    $('ext').textContent = Config.get().extension;
+    var unread = Messages.unreadTotal();
+    $('ext').textContent = Config.get().extension + (unread ? '  ✉' + unread : '');
     if (s.state === 'registered') { authPrompted = false; }
     if (s.state === 'authfail' && screen === 'home' && !authPrompted) {
       authPrompted = true;
@@ -119,8 +123,11 @@ var UI = (function () {
     var el = $('screen');
     clear(el);
     heading(el, 'Meniu');
-    var i;
-    for (i = 0; i < MENU.length; i++) { el.appendChild(div('item' + (i === menuSel ? ' sel' : ''), MENU[i].label)); }
+    var i, label, u = Messages.unreadTotal();
+    for (i = 0; i < MENU.length; i++) {
+      label = MENU[i].label + (MENU[i].id === 'chat' && u ? ' (' + u + ')' : '');
+      el.appendChild(div('item' + (i === menuSel ? ' sel' : ''), label));
+    }
     softkeys('Înapoi', 'Alege', '');
   }
   function openMenu() { screen = 'menu'; menuSel = 0; renderMenu(); }
@@ -128,6 +135,7 @@ var UI = (function () {
     var id = MENU[menuSel].id;
     if (id === 'account') { openLogin(); }
     else if (id === 'contacts') { openContacts(); }
+    else if (id === 'chat') { openChats(); }
     else if (id === 'ptt') { openPtt(); }
     else if (id === 'log') { screen = 'log'; logSel = 0; renderLog(); }
     else if (id === 'settings') { openSettings('basic'); }
@@ -155,6 +163,8 @@ var UI = (function () {
     if (name === 'home') { renderHome(); }
     else if (name === 'log') { renderLog(); }
     else if (name === 'contacts') { renderContacts(); }
+    else if (name === 'chats') { renderChats(); }
+    else if (name === 'chat') { renderChat(); }
     else if (name === 'menu') { renderMenu(); }
     else if (name === 'settings') { renderSettings(); }
     else { backToHome(); }
@@ -357,6 +367,134 @@ var UI = (function () {
   }
   function pttKeyUp() { Ptt.release(); renderPtt(); }
 
+  /* ---------- chat ---------- */
+  var chatNum = '', chatSel = 0, compose = null, newChat = null;
+
+  function displayName(number) { var c = Contacts.findByNumber(number); return c ? c.name : number; }
+  function timeOf(ts) {
+    var d = new Date(ts);
+    function p(n) { return ('0' + n).slice(-2); }
+    return p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function openChats() { screen = 'chats'; chatSel = 0; renderChats(); }
+  function renderChats() {
+    var el = $('screen'), list = Messages.threads();
+    clear(el);
+    heading(el, 'Mesaje');
+    if (!list.length) { el.appendChild(div('hint', 'Nicio conversație')); softkeys('Înapoi', '', 'Nou'); return; }
+    if (chatSel >= list.length) { chatSel = list.length - 1; }
+    var i, row, sel = null;
+    for (i = 0; i < list.length; i++) {
+      row = div('item' + (i === chatSel ? ' sel' : ''));
+      row.appendChild(div('v', Messages.label(list[i], displayName(list[i].number))));
+      row.appendChild(div('k', Messages.preview(list[i])));
+      el.appendChild(row);
+      if (i === chatSel) { sel = row; }
+    }
+    if (sel && sel.scrollIntoView) { sel.scrollIntoView(false); }
+    softkeys('Înapoi', 'Deschide', 'Nou');
+  }
+
+  function openChat(number) {
+    chatNum = number;
+    screen = 'chat';
+    Messages.markRead(number);
+    renderChat();
+    refreshStatus();
+  }
+  function statusMark(it) {
+    if (it.dir !== 'out') { return ''; }
+    return it.status === 'sent' ? ' ✓' : (it.status === 'failed' ? ' ✗ nelivrat' : (it.status === 'queued' ? ' · în așteptare' : ' …'));
+  }
+  function renderChat() {
+    var el = $('screen'), items = Messages.get(chatNum);
+    clear(el);
+    heading(el, displayName(chatNum));
+    if (!items.length) { el.appendChild(div('hint', 'Niciun mesaj. Apasă Scrie.')); }
+    var last = null;
+    items.forEach(function (it) {
+      var m = div('msg ' + (it.dir === 'in' ? 'in' : 'out'));
+      m.appendChild(div('t', it.text));
+      m.appendChild(div('m', timeOf(it.ts) + statusMark(it)));
+      el.appendChild(m);
+      last = m;
+    });
+    if (last && last.scrollIntoView) { last.scrollIntoView(false); }
+    softkeys('Înapoi', 'Scrie', 'Opțiuni');
+  }
+  function chatOptions() {
+    var items = [{ label: 'Apelează', run: function () { ctx = null; screen = 'chat'; var e = Call.dial(chatNum); if (e) { toast(e); renderChat(); } } }];
+    if (Messages.failed(chatNum).length) {
+      items.push({ label: 'Retrimite cele nelivrate', run: function () { Chat.retryFailed(chatNum); closeCtx(); toast('Se retrimit'); } });
+    }
+    if (!Contacts.findByNumber(chatNum)) {
+      items.push({ label: 'Salvează în contacte', run: function () { ctx = null; openContactEdit(null, chatNum, 'chat'); } });
+    }
+    items.push({
+      label: 'Șterge conversația',
+      run: function () {
+        ctx = null;
+        openConfirm('Ștergi conversația cu „' + displayName(chatNum) + '”?', function () { Messages.removeThread(chatNum); toast('Șters'); chatNum = ''; }, 'chats');
+      }
+    });
+    openCtx('Conversație', items, 'chat');
+  }
+
+  function openCompose(number) {
+    compose = { number: number, text: '', error: '' };
+    screen = 'compose';
+    renderCompose();
+  }
+  function renderCompose() {
+    var el = $('screen');
+    clear(el);
+    heading(el, 'Către ' + displayName(compose.number));
+    var box = div('edit');
+    var input = document.createElement('textarea');
+    input.id = 'msgtext';
+    input.rows = 4;
+    input.maxLength = Messages.MAX_TEXT;
+    input.value = compose.text;
+    var counter = div('hint', '');
+    counter.id = 'msgcount';
+    function upd() { counter.textContent = input.value.length + ' / ' + Messages.MAX_TEXT; }
+    input.addEventListener('input', upd);
+    upd();
+    box.appendChild(input);
+    el.appendChild(box);
+    el.appendChild(counter);
+    if (compose.error) { el.appendChild(div('err', compose.error)); }
+    focusEnd('msgtext');
+    softkeys('Anulează', 'Trimite', '');
+  }
+  function sendCompose() {
+    var t = $('msgtext');
+    compose.text = t ? t.value : compose.text;
+    var err = Chat.send(compose.number, compose.text);
+    if (err) { compose.error = err; renderCompose(); return; }
+    var n = compose.number;
+    compose = null;
+    openChat(n);
+  }
+  function cancelCompose() {
+    var n = compose ? compose.number : '';
+    compose = null;
+    if (n && Messages.get(n).length) { openChat(n); } else { openChats(); }
+  }
+
+  function openNewChat(error) {
+    newChat = { error: error || '' };
+    screen = 'newchat';
+    var el = $('screen');
+    clear(el);
+    heading(el, 'Conversație nouă');
+    el.appendChild(inputRow('Număr', 'newnum', 'tel', '', 'ex. 207'));
+    if (newChat.error) { el.appendChild(div('err', newChat.error)); }
+    focusEnd('newnum');
+    softkeys('Anulează', 'Continuă', '');
+  }
+
   /* ---------- call log ---------- */
   function renderLog() {
     var el = $('screen');
@@ -377,6 +515,7 @@ var UI = (function () {
   function logOptions() {
     var entry = CallLog.list()[logSel];
     var items = [];
+    if (entry) { items.push({ label: 'Trimite mesaj', run: function () { ctx = null; openCompose(entry.number); } }); }
     if (entry && !Contacts.findByNumber(entry.number)) {
       items.push({ label: 'Salvează în contacte', run: function () { ctx = null; openContactEdit(null, entry.number, 'log'); } });
     }
@@ -411,6 +550,7 @@ var UI = (function () {
     var list = Contacts.list(), c = list[ctSel];
     var items = [{ label: 'Adaugă contact', run: function () { ctx = null; openContactEdit(null, '', 'contacts'); } }];
     if (c) {
+      items.push({ label: 'Trimite mesaj', run: function () { ctx = null; openCompose(c.number); } });
       items.push({ label: 'Editează', run: function () { ctx = null; openContactEdit(c, '', 'contacts'); } });
       items.push({
         label: 'Șterge',
@@ -453,7 +593,7 @@ var UI = (function () {
     var back = ced.back;
     ced = null;
     toast('Salvat');
-    goto(back === 'log' ? 'log' : 'contacts');
+    goto(back || 'contacts');
   }
 
   /* ---------- account (login) ---------- */
@@ -536,6 +676,43 @@ var UI = (function () {
     if (keyLogged < 40) { keyLogged++; Log.i('key', 'key=' + e.key + ' code=' + e.keyCode); }
     var k = norm(e), n;
 
+    if (screen === 'chats') {
+      var threads = Messages.threads();
+      if (k === 'Up' && threads.length) { e.preventDefault(); chatSel = wrap(chatSel, threads.length, -1); renderChats(); }
+      else if (k === 'Down' && threads.length) { e.preventDefault(); chatSel = wrap(chatSel, threads.length, 1); renderChats(); }
+      else if (k === 'Enter' && threads.length) { e.preventDefault(); openChat(threads[chatSel].number); }
+      else if (k === 'SoftRight') { e.preventDefault(); openNewChat(); }
+      else if (k === 'SoftLeft' || k === 'Back') { e.preventDefault(); backToHome(); }
+      return;
+    }
+
+    if (screen === 'chat') {
+      if (k === 'Enter') { e.preventDefault(); openCompose(chatNum); }
+      else if (k === 'Up') { e.preventDefault(); $('screen').scrollTop -= 50; }
+      else if (k === 'Down') { e.preventDefault(); $('screen').scrollTop += 50; }
+      else if (k === 'SoftRight') { e.preventDefault(); chatOptions(); }
+      else if (k === 'SoftLeft' || k === 'Back') { e.preventDefault(); chatNum = ''; openChats(); }
+      return;
+    }
+
+    if (screen === 'compose') {
+      if (k === 'Enter') { e.preventDefault(); sendCompose(); }
+      else if (k === 'SoftLeft') { e.preventDefault(); cancelCompose(); }
+      return;
+    }
+
+    if (screen === 'newchat') {
+      if (k === 'Enter') {
+        e.preventDefault();
+        var num = Util.filterNumber($('newnum').value);
+        if (!num) { openNewChat('Număr invalid'); }
+        else if (num === Config.get().extension) { openNewChat('Acesta e numărul tău'); }
+        else { newChat = null; openCompose(num); }
+      }
+      else if (k === 'SoftLeft') { e.preventDefault(); newChat = null; openChats(); }
+      return;
+    }
+
     if (screen === 'ptt') {
       if (k === 'Enter') { e.preventDefault(); pttKeyDown(e); }
       else if (k === 'SoftLeft' || k === 'Back') { e.preventDefault(); Ptt.release(); if (!Call.inCall()) { backToHome(); } }
@@ -568,7 +745,7 @@ var UI = (function () {
       if (k === 'Up') { e.preventDefault(); syncContact(); ced.focus = 0; renderContactEdit(); }
       else if (k === 'Down') { e.preventDefault(); syncContact(); ced.focus = 1; renderContactEdit(); }
       else if (k === 'Enter') { e.preventDefault(); if (ced.focus === 0) { syncContact(); ced.focus = 1; renderContactEdit(); } else { saveContact(); } }
-      else if (k === 'SoftLeft') { e.preventDefault(); var b = ced.back; ced = null; goto(b === 'log' ? 'log' : 'contacts'); }
+      else if (k === 'SoftLeft') { e.preventDefault(); var b = ced.back; ced = null; goto(b || 'contacts'); }
       return;
     }
 
@@ -669,6 +846,13 @@ var UI = (function () {
         else if (screen === 'ptt') { renderPtt(); }
       });
       Route.onHeadphones(function () { if (screen === 'call') { renderCall(); } });
+      Chat.on('incoming', function (d) {
+        if (screen === 'chat' && chatNum === d.number) { Messages.markRead(d.number); renderChat(); }
+        else if (screen === 'chats') { renderChats(); }
+        else if (screen !== 'compose' && screen !== 'newchat') { toast('Mesaj de la ' + displayName(d.number)); }
+        refreshStatus();
+      });
+      Chat.on('changed', function (d) { if (screen === 'chat' && chatNum === d.number) { renderChat(); } });
       renderHome();
       refreshStatus();
     },

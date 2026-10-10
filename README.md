@@ -11,6 +11,8 @@ and a call log, and can stay connected in the background. Built with plain ES5 J
 
 - Voice calls in both directions, hang up, reject, mute, **in-call DTMF** (SIP INFO), **volume 20-300%** (up/down keys)
 - **Earpiece / speaker / headset** switching during a call (center key); needs the *certified* package
+- **Chat** over SIP MESSAGE (works with Linphone too), unread counter, notifications, messages kept for offline phones
+  (needs the PBX dialplan in docs/PBX-SETUP.md)
 - **Push-to-talk** between KaiSIP phones (hold OK, others hear you; set up on the PBX, see docs/PBX-SETUP.md)
 - Contacts (add, edit, delete), call log (last 20), names shown on incoming calls
 - First-run **Account** screen: server, extension, password
@@ -78,8 +80,12 @@ The status bar turns green and says *Înregistrat* (registered). Type a number a
 | In call | left softkey | mute |
 | In call | right softkey / red key | hang up |
 
-Menu: Account, Contacts, Walkie-talkie (PTT), Call log, Settings (ring volume, PTT channel and members, background mode,
+Menu: Account, Contacts, Messages, Walkie-talkie (PTT), Call log, Settings (ring volume, PTT channel and members, background mode,
 default output, advanced), Reconnect, About.
+
+**Messages:** the menu lists conversations (unread count in brackets). **OK** opens one, **Write** composes (500 characters),
+**New** starts a chat with any number. Contacts and the call log also have *Send message*. A message written while you are
+offline waits and is sent when you register; messages sent to a phone that is offline are kept by the PBX (see PBX-SETUP).
 
 **Walkie-talkie:** open it from the menu and **hold OK** to talk; release to listen. A beep means the channel is open.
 One person talks at a time. It needs the PBX channel from docs/PBX-SETUP.md and works only between KaiSIP phones.

@@ -20,6 +20,12 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #1014
 .dialnum { font-size: 30px; text-align: center; margin-top: 40px; min-height: 40px; word-wrap: break-word; letter-spacing: 1px; }
 .hint { color: #9fb0bb; font-size: 13px; text-align: center; margin-top: 12px; }
 .hint.bad { color: #ff8a80; }
+.msg { margin: 5px 0; padding: 5px 8px; border-radius: 8px; max-width: 88%; word-wrap: break-word; white-space: pre-wrap; }
+.msg.in { background: #26343f; margin-right: auto; }
+.msg.out { background: #1e6b4a; margin-left: auto; }
+.msg .t { font-size: 15px; }
+.msg .m { font-size: 11px; color: #b7c6cf; text-align: right; margin-top: 2px; }
+textarea { width: 100%; box-sizing: border-box; font-size: 16px; padding: 6px; background: #fff; color: #000; border: 2px solid #2ecc71; }
 .pttstate { text-align: center; font-size: 26px; font-weight: bold; margin: 16px 0 8px; color: #9fb0bb; }
 .pttstate.ptt-opening { color: #f1c40f; }
 .pttstate.ptt-talking { color: #ff5252; }
